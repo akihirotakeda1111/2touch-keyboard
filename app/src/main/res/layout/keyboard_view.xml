@@ -6,6 +6,25 @@
     android:orientation="vertical"
     android:padding="8dp">
 
+    <HorizontalScrollView
+        android:id="@+id/candidate_scroll"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginBottom="8dp"
+        android:background="@color/candidate_bar_background"
+        android:fillViewport="true"
+        android:scrollbars="none"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:id="@+id/candidate_container"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:gravity="center_vertical"
+            android:orientation="horizontal" />
+
+    </HorizontalScrollView>
+
     <GridLayout
         android:id="@+id/keyboard_grid"
         android:layout_width="match_parent"

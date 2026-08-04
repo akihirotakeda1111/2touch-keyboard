@@ -18,7 +18,7 @@ class TwoTouchStateMachine(
 
     interface Listener {
         fun onStateChanged(state: State, rowKey: Int?)
-        fun onCharacterConfirmed(character: String)
+        fun onComposingTextUpdated(composingText: String)
     }
 
     private val rows: Map<Int, String> = mapOf(
@@ -37,6 +37,9 @@ class TwoTouchStateMachine(
     private val rowHeadLabels: Map<Int, String> = rows.mapValues { (_, chars) ->
         chars.first().toString()
     }
+
+    /** 未確定のひらがな入力バッファ */
+    private val composingText = StringBuilder()
 
     var state: State = State.IDLE
         private set
@@ -62,8 +65,28 @@ class TwoTouchStateMachine(
         }
     }
 
+    fun getComposingText(): String = composingText.toString()
+
+    /** 確定したひらがな 1 文字をバッファに追加し、リスナーへ通知する */
+    fun appendConfirmedCharacter(character: String) {
+        composingText.append(character)
+        listener.onComposingTextUpdated(composingText.toString())
+    }
+
+    fun clearComposingText() {
+        if (composingText.isEmpty()) return
+        composingText.clear()
+        listener.onComposingTextUpdated("")
+    }
+
     fun reset() {
         transitionTo(State.IDLE, rowKey = null)
+    }
+
+    /** 入力セッション開始時: キー入力状態と未確定文字列をリセット */
+    fun resetInputSession() {
+        reset()
+        clearComposingText()
     }
 
     private fun handleIdle(key: Key) {
@@ -86,7 +109,7 @@ class TwoTouchStateMachine(
                 val row = rows[rowKey] ?: return
                 val index = key.number - 1
                 if (index >= row.length) return
-                listener.onCharacterConfirmed(row[index].toString())
+                appendConfirmedCharacter(row[index].toString())
                 reset()
             }
             Key.Zero, Key.Hash -> Unit

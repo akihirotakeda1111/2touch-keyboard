@@ -1,15 +1,33 @@
 package com.example.twotouchkeyboard
 
 import android.inputmethodservice.InputMethodService
+import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.widget.Button
+import android.widget.HorizontalScrollView
+import android.widget.LinearLayout
+import android.widget.TextView
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class TwoTouchKeyboardService : InputMethodService() {
 
     private lateinit var stateMachine: TwoTouchStateMachine
+    private lateinit var candidateScroll: HorizontalScrollView
+    private lateinit var candidateContainer: LinearLayout
+
     private val keyButtons: MutableMap<TwoTouchStateMachine.Key, Button> = mutableMapOf()
+    private val conversionEngine = DummyConversionEngine()
+
+    private val conversionScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var conversionJob: Job? = null
 
     override fun onCreateInputView(): View {
         val keyboardView = layoutInflater.inflate(R.layout.keyboard_view, null)
@@ -17,6 +35,9 @@ class TwoTouchKeyboardService : InputMethodService() {
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT,
         )
+
+        candidateScroll = keyboardView.findViewById(R.id.candidate_scroll)
+        candidateContainer = keyboardView.findViewById(R.id.candidate_container)
 
         stateMachine = TwoTouchStateMachine(
             listener = object : TwoTouchStateMachine.Listener {
@@ -27,8 +48,9 @@ class TwoTouchKeyboardService : InputMethodService() {
                     updateKeyLabels()
                 }
 
-                override fun onCharacterConfirmed(character: String) {
-                    currentInputConnection?.commitText(character, 1)
+                override fun onComposingTextUpdated(composingText: String) {
+                    updateComposingText(composingText)
+                    requestConversion(composingText)
                 }
             },
         )
@@ -58,6 +80,68 @@ class TwoTouchKeyboardService : InputMethodService() {
         }
     }
 
+    /** 未確定文字列を InputConnection に反映する */
+    private fun updateComposingText(text: String) {
+        val inputConnection = currentInputConnection ?: return
+        if (text.isEmpty()) {
+            inputConnection.finishComposingText()
+        } else {
+            inputConnection.setComposingText(text, 1)
+        }
+    }
+
+    /** 変換候補を非同期取得し、最新入力のみ UI に反映する */
+    private fun requestConversion(input: String) {
+        conversionJob?.cancel()
+        if (input.isEmpty()) {
+            clearCandidateUi()
+            return
+        }
+
+        conversionJob = conversionScope.launch {
+            val candidates = withContext(Dispatchers.Default) {
+                conversionEngine.convert(input)
+            }
+            if (input != stateMachine.getComposingText()) return@launch
+            updateCandidateUi(candidates)
+        }
+    }
+
+    private fun updateCandidateUi(candidates: List<String>) {
+        candidateContainer.removeAllViews()
+        if (candidates.isEmpty()) {
+            clearCandidateUi()
+            return
+        }
+
+        val inflater = LayoutInflater.from(this)
+        candidates.forEach { candidate ->
+            val itemView = inflater.inflate(R.layout.suggest_item, candidateContainer, false)
+            val textView = itemView.findViewById<TextView>(R.id.candidate_text)
+            textView.text = candidate
+            textView.setOnClickListener {
+                commitCandidate(candidate)
+            }
+            candidateContainer.addView(itemView)
+        }
+        candidateScroll.visibility = View.VISIBLE
+        candidateScroll.scrollTo(0, 0)
+    }
+
+    private fun clearCandidateUi() {
+        conversionJob?.cancel()
+        candidateContainer.removeAllViews()
+        candidateScroll.visibility = View.GONE
+    }
+
+    /** 候補タップ時: 確定 → バッファクリア → サジェスト非表示 */
+    private fun commitCandidate(candidate: String) {
+        val inputConnection = currentInputConnection ?: return
+        inputConnection.commitText(candidate, 1)
+        stateMachine.clearComposingText()
+        clearCandidateUi()
+    }
+
     /** ステートマシンの状態に応じて全ボタンのテキストラベルを更新する */
     private fun updateKeyLabels() {
         keyButtons.forEach { (key, button) ->
@@ -83,7 +167,15 @@ class TwoTouchKeyboardService : InputMethodService() {
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
         if (::stateMachine.isInitialized) {
-            stateMachine.reset()
+            conversionJob?.cancel()
+            stateMachine.resetInputSession()
+            clearCandidateUi()
+            currentInputConnection?.finishComposingText()
         }
+    }
+
+    override fun onDestroy() {
+        conversionScope.cancel()
+        super.onDestroy()
     }
 }
