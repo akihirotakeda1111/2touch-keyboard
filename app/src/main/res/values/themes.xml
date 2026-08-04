@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.TwoTouchKeyboard" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- IME サービス専用テーマ: InputMethodService が要求する属性を提供 -->
+    <style name="Theme.TwoTouchKeyboard.Ime" parent="@android:style/Theme.DeviceDefault.InputMethod" />
+</resources>
