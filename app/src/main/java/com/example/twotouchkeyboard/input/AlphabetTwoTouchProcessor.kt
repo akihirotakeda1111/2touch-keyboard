@@ -33,8 +33,11 @@ class AlphabetTwoTouchProcessor(
             KeyboardKey.Star -> MODE_LABEL
             KeyboardKey.Zero -> "0"
             KeyboardKey.Hash -> "#"
+            else -> super.getKeyLabel(key)
         }
     }
+
+    override fun hasPartialTwoTouchInput(): Boolean = state == State.WAITING_VOWEL
 
     override fun resetPartialInput() {
         super.resetPartialInput()
@@ -58,7 +61,7 @@ class AlphabetTwoTouchProcessor(
                 state = State.WAITING_VOWEL
                 host.onProcessorStateChanged()
             }
-            KeyboardKey.Star, KeyboardKey.Zero, KeyboardKey.Hash -> Unit
+            else -> Unit
         }
     }
 
@@ -75,7 +78,7 @@ class AlphabetTwoTouchProcessor(
                 activeRow = null
                 host.onProcessorStateChanged()
             }
-            KeyboardKey.Star, KeyboardKey.Zero, KeyboardKey.Hash -> Unit
+            else -> Unit
         }
     }
 

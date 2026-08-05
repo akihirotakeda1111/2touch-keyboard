@@ -26,7 +26,7 @@ class AlphabetToggleProcessor(
                 refreshComposingPreview()
                 host.onProcessorStateChanged()
             }
-            KeyboardKey.Star, KeyboardKey.Zero, KeyboardKey.Hash -> Unit
+            else -> Unit
         }
     }
 
@@ -48,7 +48,14 @@ class AlphabetToggleProcessor(
             KeyboardKey.Star -> MODE_LABEL
             KeyboardKey.Zero -> "0"
             KeyboardKey.Hash -> "#"
+            else -> super.getKeyLabel(key)
         }
+    }
+
+    override fun clearToggleState() {
+        super.clearToggleState()
+        activeRow = null
+        activeIndex = 0
     }
 
     override fun resetPartialInput() {

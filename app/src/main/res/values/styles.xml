@@ -7,4 +7,13 @@
         <item name="android:layout_gravity">fill_horizontal</item>
         <item name="android:textSize">16sp</item>
     </style>
+
+    <style name="KeyboardFunctionKey" parent="KeyboardKey">
+        <item name="android:textSize">14sp</item>
+    </style>
+
+    <style name="KeyboardSpaceKey" parent="KeyboardKey">
+        <item name="android:layout_height">48dp</item>
+        <item name="android:textSize">14sp</item>
+    </style>
 </resources>

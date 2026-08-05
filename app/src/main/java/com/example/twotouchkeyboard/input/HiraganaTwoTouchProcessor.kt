@@ -38,8 +38,11 @@ class HiraganaTwoTouchProcessor(
             KeyboardKey.Star -> MODE_LABEL
             KeyboardKey.Zero -> "0"
             KeyboardKey.Hash -> if (state == State.IDLE) "#\n、" else "#"
+            else -> super.getKeyLabel(key)
         }
     }
+
+    override fun hasPartialTwoTouchInput(): Boolean = state == State.WAITING_VOWEL
 
     override fun resetPartialInput() {
         super.resetPartialInput()
@@ -58,7 +61,7 @@ class HiraganaTwoTouchProcessor(
                 transitionTo(State.WAITING_VOWEL, ActiveRow.Hiragana(key.number))
             }
             KeyboardKey.Hash -> transitionTo(State.WAITING_VOWEL, ActiveRow.Symbol)
-            KeyboardKey.Star, KeyboardKey.Zero -> Unit
+            else -> Unit
         }
     }
 
@@ -82,7 +85,7 @@ class HiraganaTwoTouchProcessor(
                 host.appendConfirmedCharacter(character)
                 transitionTo(State.IDLE, activeRow = null)
             }
-            KeyboardKey.Star, KeyboardKey.Zero, KeyboardKey.Hash -> Unit
+            else -> Unit
         }
     }
 

@@ -22,7 +22,7 @@ class HiraganaToggleProcessor(
                 handleToggle(ActiveKey.Hiragana(key.number), KeyboardMappings.hiraganaRows[key.number] ?: return)
             }
             KeyboardKey.Hash -> handleToggle(ActiveKey.Symbol, KeyboardMappings.symbolRow)
-            KeyboardKey.Star, KeyboardKey.Zero -> Unit
+            else -> Unit
         }
     }
 
@@ -48,7 +48,14 @@ class HiraganaToggleProcessor(
             KeyboardKey.Hash -> {
                 if (activeKey is ActiveKey.Symbol) getSymbolToggleLabel() else "#\n、"
             }
+            else -> super.getKeyLabel(key)
         }
+    }
+
+    override fun clearToggleState() {
+        super.clearToggleState()
+        activeKey = null
+        activeIndex = 0
     }
 
     override fun resetPartialInput() {

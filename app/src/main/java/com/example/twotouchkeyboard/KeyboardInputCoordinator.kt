@@ -1,11 +1,14 @@
 package com.example.twotouchkeyboard
 
+import android.view.inputmethod.InputConnection
 import com.example.twotouchkeyboard.input.AlphabetToggleProcessor
 import com.example.twotouchkeyboard.input.AlphabetTwoTouchProcessor
 import com.example.twotouchkeyboard.input.HiraganaToggleProcessor
 import com.example.twotouchkeyboard.input.HiraganaTwoTouchProcessor
 import com.example.twotouchkeyboard.input.InputProcessor
 import com.example.twotouchkeyboard.input.InputProcessorHost
+import com.example.twotouchkeyboard.input.NumberInputProcessor
+import android.view.inputmethod.EditorInfo
 
 /**
  * 文字種モードの巡回と InputProcessor の差し替えを統括する。
@@ -22,29 +25,61 @@ class KeyboardInputCoordinator(
 
     private val confirmedBuffer = StringBuilder()
     private var currentPreview: String = ""
+    private var inputConnection: InputConnection? = null
+    private var currentEditorInfo: EditorInfo? = null
 
-    var inputMode: InputMode = InputMode.HIRAGANA
-        private set
+    private var currentInputMode: InputMode = InputMode.HIRAGANA
 
     private var hiraganaProcessor: InputProcessor =
         HiraganaTwoTouchProcessor(this)
     private var alphabetProcessor: InputProcessor =
         AlphabetToggleProcessor(this)
+    private var numberProcessor: InputProcessor =
+        NumberInputProcessor(this)
 
     private var hiraganaInputMethod: CharacterInputMethod = CharacterInputMethod.TWOTOUCH
     private var alphabetInputMethod: CharacterInputMethod = CharacterInputMethod.TOGGLE
 
+    fun bindInputConnection(ic: InputConnection?) {
+        inputConnection = ic
+    }
+
+    fun bindEditorInfo(info: EditorInfo?) {
+        currentEditorInfo = info
+    }
+
     fun onKeyPressed(key: KeyboardKey) {
-        if (inputMode == InputMode.NUMBER) return
-        activeProcessor()?.onKeyPressed(key)
+        activeProcessor().onKeyPressed(key)
+    }
+
+    fun onDelete() {
+        val ic = inputConnection ?: return
+        activeProcessor().onDelete(ic)
+    }
+
+    fun onEnter() {
+        val ic = inputConnection ?: return
+        activeProcessor().onEnter(ic, currentEditorInfo)
+    }
+
+    fun onSpace() {
+        val ic = inputConnection ?: return
+        activeProcessor().onSpace(ic)
+    }
+
+    fun onCursorMove(direction: Int) {
+        val ic = inputConnection ?: return
+        activeProcessor().onCursorMove(ic, direction)
+    }
+
+    fun handleModeSwitchKey() {
+        inputConnection?.let { commitComposingText(it) }
+        clearComposingState()
+        cycleInputMode()
     }
 
     fun getKeyLabel(key: KeyboardKey): String {
-        return when (inputMode) {
-            InputMode.HIRAGANA -> hiraganaProcessor.getKeyLabel(key)
-            InputMode.ALPHABET -> alphabetProcessor.getKeyLabel(key)
-            InputMode.NUMBER -> getNumberKeyLabel(key)
-        }
+        return activeProcessor().getKeyLabel(key)
     }
 
     fun getComposingText(): String = currentPreview
@@ -57,37 +92,37 @@ class KeyboardInputCoordinator(
     }
 
     fun resetPartialInput() {
-        activeProcessor()?.resetPartialInput()
+        activeProcessor().resetPartialInput()
     }
 
     fun resetInputSession() {
         hiraganaProcessor.resetInputSession()
         alphabetProcessor.resetInputSession()
+        numberProcessor.resetInputSession()
         clearComposingText()
         listener.onStateChanged()
     }
 
     fun confirmAllPendingInput() {
-        activeProcessor()?.confirmPendingInput()
+        activeProcessor().confirmPendingInput()
     }
 
-    /** HIRAGANA → ALPHABET → NUMBER → HIRAGANA */
     fun cycleInputMode(): InputMode {
-        activeProcessor()?.resetPartialInput()
-        inputMode = when (inputMode) {
+        activeProcessor().resetPartialInput()
+        currentInputMode = when (currentInputMode) {
             InputMode.HIRAGANA -> InputMode.ALPHABET
             InputMode.ALPHABET -> InputMode.NUMBER
             InputMode.NUMBER -> InputMode.HIRAGANA
         }
-        listener.onInputModeChanged(inputMode)
+        listener.onInputModeChanged(currentInputMode)
         listener.onStateChanged()
-        return inputMode
+        return currentInputMode
     }
 
     fun setHiraganaInputMethod(method: CharacterInputMethod) {
         if (method == hiraganaInputMethod) return
         hiraganaInputMethod = method
-        if (inputMode == InputMode.HIRAGANA) {
+        if (currentInputMode == InputMode.HIRAGANA) {
             hiraganaProcessor.confirmPendingInput()
         }
         hiraganaProcessor.resetInputSession()
@@ -98,7 +133,7 @@ class KeyboardInputCoordinator(
     fun setAlphabetInputMethod(method: CharacterInputMethod) {
         if (method == alphabetInputMethod) return
         alphabetInputMethod = method
-        if (inputMode == InputMode.ALPHABET) {
+        if (currentInputMode == InputMode.ALPHABET) {
             alphabetProcessor.confirmPendingInput()
         }
         alphabetProcessor.resetInputSession()
@@ -123,10 +158,42 @@ class KeyboardInputCoordinator(
 
     override fun getConfirmedBuffer(): String = confirmedBuffer.toString()
 
-    private fun activeProcessor(): InputProcessor? = when (inputMode) {
+    override fun getComposingPreview(): String = currentPreview
+
+    override fun deleteLastConfirmedCharacter() {
+        if (confirmedBuffer.isEmpty()) return
+        confirmedBuffer.deleteCharAt(confirmedBuffer.length - 1)
+        currentPreview = confirmedBuffer.toString()
+        listener.onComposingTextUpdated(currentPreview)
+    }
+
+    override fun commitComposingText(ic: InputConnection) {
+        confirmAllPendingInput()
+        val text = getComposingPreview()
+        if (text.isNotEmpty()) {
+            ic.commitText(text, 1)
+        }
+    }
+
+    override fun clearComposingState() {
+        clearComposingText()
+        activeProcessor().resetPartialInput()
+    }
+
+    override fun getInputMode(): InputMode = currentInputMode
+
+    override fun requestConversion() {
+        listener.onComposingTextUpdated(currentPreview)
+    }
+
+    override fun commitDirectText(text: String) {
+        inputConnection?.commitText(text, 1)
+    }
+
+    private fun activeProcessor(): InputProcessor = when (currentInputMode) {
         InputMode.HIRAGANA -> hiraganaProcessor
         InputMode.ALPHABET -> alphabetProcessor
-        InputMode.NUMBER -> null
+        InputMode.NUMBER -> numberProcessor
     }
 
     private fun createHiraganaProcessor(method: CharacterInputMethod): InputProcessor {
@@ -140,15 +207,6 @@ class KeyboardInputCoordinator(
         return when (method) {
             CharacterInputMethod.TWOTOUCH -> AlphabetTwoTouchProcessor(this)
             CharacterInputMethod.TOGGLE -> AlphabetToggleProcessor(this)
-        }
-    }
-
-    private fun getNumberKeyLabel(key: KeyboardKey): String {
-        return when (key) {
-            is KeyboardKey.Digit -> key.number.toString()
-            KeyboardKey.Star -> "123"
-            KeyboardKey.Zero -> "0"
-            KeyboardKey.Hash -> "#"
         }
     }
 }

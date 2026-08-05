@@ -88,6 +88,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
                 }
 
                 override fun onInputModeChanged(mode: InputMode) {
+                    clearCandidateUi()
                     updateKeyLabels()
                 }
             },
@@ -108,6 +109,11 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         bindKey(keyboardView, R.id.key_star, KeyboardKey.Star)
         bindKey(keyboardView, R.id.key_0, KeyboardKey.Zero)
         bindKey(keyboardView, R.id.key_hash, KeyboardKey.Hash)
+        bindKey(keyboardView, R.id.key_delete, KeyboardKey.Delete)
+        bindKey(keyboardView, R.id.key_enter, KeyboardKey.Enter)
+        bindKey(keyboardView, R.id.key_space, KeyboardKey.Space)
+        bindKey(keyboardView, R.id.key_cursor_left, KeyboardKey.CursorLeft)
+        bindKey(keyboardView, R.id.key_cursor_right, KeyboardKey.CursorRight)
 
         updateKeyLabels()
         return keyboardView
@@ -117,45 +123,21 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         val button = root.findViewById<Button>(viewId)
         keyButtons[key] = button
         button.setOnClickListener {
-            if (key == KeyboardKey.Star) {
-                switchInputMode()
-            } else {
-                handleKeyPress(key)
-            }
+            dispatchKey(key)
         }
     }
 
-    private fun handleKeyPress(key: KeyboardKey) {
-        if (coordinator.inputMode == InputMode.NUMBER) {
-            handleNumberModeKey(key)
-            return
+    private fun dispatchKey(key: KeyboardKey) {
+        coordinator.bindInputConnection(currentInputConnection)
+        when (key) {
+            KeyboardKey.Star -> coordinator.handleModeSwitchKey()
+            KeyboardKey.Delete -> coordinator.onDelete()
+            KeyboardKey.Enter -> coordinator.onEnter()
+            KeyboardKey.Space -> coordinator.onSpace()
+            KeyboardKey.CursorLeft -> coordinator.onCursorMove(CursorDirection.LEFT)
+            KeyboardKey.CursorRight -> coordinator.onCursorMove(CursorDirection.RIGHT)
+            else -> coordinator.onKeyPressed(key)
         }
-        coordinator.onKeyPressed(key)
-    }
-
-    private fun handleNumberModeKey(key: KeyboardKey) {
-        val text = when (key) {
-            is KeyboardKey.Digit -> key.number.toString()
-            KeyboardKey.Zero -> "0"
-            KeyboardKey.Hash -> "#"
-            KeyboardKey.Star -> return
-        }
-        currentInputConnection?.commitText(text, 1)
-    }
-
-    private fun switchInputMode() {
-        forceCommitComposingText()
-        coordinator.cycleInputMode()
-        updateKeyLabels()
-    }
-
-    private fun forceCommitComposingText() {
-        coordinator.confirmAllPendingInput()
-        val composingText = coordinator.getComposingText()
-        if (composingText.isEmpty()) return
-        currentInputConnection?.commitText(composingText, 1)
-        coordinator.clearComposingText()
-        clearCandidateUi()
     }
 
     private fun updateComposingText(text: String) {
@@ -176,7 +158,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
 
         conversionJob = conversionScope.launch {
             val candidates = withContext(Dispatchers.Default) {
-                conversionEngine.convert(input, coordinator.inputMode)
+                conversionEngine.convert(input, coordinator.getInputMode())
             }
             if (input != coordinator.getComposingText()) return@launch
             updateCandidateUi(candidates)
@@ -213,7 +195,6 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     private fun commitCandidate(candidate: String) {
         val inputConnection = currentInputConnection ?: return
         inputConnection.commitText(candidate, 1)
-        coordinator.clearComposingText()
         coordinator.resetInputSession()
         clearCandidateUi()
     }
@@ -222,6 +203,15 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         keyButtons.forEach { (key, button) ->
             button.text = coordinator.getKeyLabel(key)
         }
+    }
+
+    private fun finalizeInputState() {
+        coordinator.bindInputConnection(currentInputConnection)
+        currentInputConnection?.let { ic ->
+            coordinator.commitComposingText(ic)
+        }
+        coordinator.clearComposingState()
+        clearCandidateUi()
     }
 
     override fun onEvaluateInputViewShown(): Boolean {
@@ -243,6 +233,8 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         super.onStartInputView(info, restarting)
         if (::coordinator.isInitialized) {
             conversionJob?.cancel()
+            coordinator.bindEditorInfo(info)
+            coordinator.bindInputConnection(currentInputConnection)
             coordinator.resetInputSession()
             clearCandidateUi()
             currentInputConnection?.finishComposingText()
@@ -251,9 +243,8 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
 
     override fun onFinishInputView(finishingInput: Boolean) {
         if (::coordinator.isInitialized) {
-            forceCommitComposingText()
+            finalizeInputState()
             coordinator.resetInputSession()
-            clearCandidateUi()
         }
         super.onFinishInputView(finishingInput)
     }
