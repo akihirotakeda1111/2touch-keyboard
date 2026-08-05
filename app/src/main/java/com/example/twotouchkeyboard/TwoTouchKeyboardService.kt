@@ -52,6 +52,10 @@ class TwoTouchKeyboardService : InputMethodService() {
                     updateComposingText(composingText)
                     requestConversion(composingText)
                 }
+
+                override fun onInputModeChanged(mode: InputMode) {
+                    updateKeyLabels()
+                }
             },
         )
 
@@ -76,11 +80,50 @@ class TwoTouchKeyboardService : InputMethodService() {
         val button = root.findViewById<Button>(viewId)
         keyButtons[key] = button
         button.setOnClickListener {
-            stateMachine.onKeyPressed(key)
+            if (key == TwoTouchStateMachine.Key.Star) {
+                switchInputMode()
+            } else {
+                handleKeyPress(key)
+            }
         }
     }
 
-    /** 未確定文字列を InputConnection に反映する */
+    private fun handleKeyPress(key: TwoTouchStateMachine.Key) {
+        if (stateMachine.inputMode == InputMode.NUMBER) {
+            handleNumberModeKey(key)
+            return
+        }
+        stateMachine.onKeyPressed(key)
+    }
+
+    /** NUMBER モード: 1 タッチで即 commitText */
+    private fun handleNumberModeKey(key: TwoTouchStateMachine.Key) {
+        val text = when (key) {
+            is TwoTouchStateMachine.Key.Digit -> key.number.toString()
+            TwoTouchStateMachine.Key.Zero -> "0"
+            TwoTouchStateMachine.Key.Hash -> "#"
+            TwoTouchStateMachine.Key.Star -> return
+        }
+        currentInputConnection?.commitText(text, 1)
+    }
+
+    /**
+     * モード切替: WAITING_VOWEL を破棄し、未確定文字列があれば強制確定してから巡回する。
+     */
+    private fun switchInputMode() {
+        forceCommitComposingText()
+        stateMachine.cycleInputMode()
+        updateKeyLabels()
+    }
+
+    private fun forceCommitComposingText() {
+        val composingText = stateMachine.getComposingText()
+        if (composingText.isEmpty()) return
+        currentInputConnection?.commitText(composingText, 1)
+        stateMachine.clearComposingText()
+        clearCandidateUi()
+    }
+
     private fun updateComposingText(text: String) {
         val inputConnection = currentInputConnection ?: return
         if (text.isEmpty()) {
@@ -90,7 +133,6 @@ class TwoTouchKeyboardService : InputMethodService() {
         }
     }
 
-    /** 変換候補を非同期取得し、最新入力のみ UI に反映する */
     private fun requestConversion(input: String) {
         conversionJob?.cancel()
         if (input.isEmpty()) {
@@ -100,7 +142,7 @@ class TwoTouchKeyboardService : InputMethodService() {
 
         conversionJob = conversionScope.launch {
             val candidates = withContext(Dispatchers.Default) {
-                conversionEngine.convert(input)
+                conversionEngine.convert(input, stateMachine.inputMode)
             }
             if (input != stateMachine.getComposingText()) return@launch
             updateCandidateUi(candidates)
@@ -134,7 +176,6 @@ class TwoTouchKeyboardService : InputMethodService() {
         candidateScroll.visibility = View.GONE
     }
 
-    /** 候補タップ時: 確定 → バッファクリア → サジェスト非表示 */
     private fun commitCandidate(candidate: String) {
         val inputConnection = currentInputConnection ?: return
         inputConnection.commitText(candidate, 1)
@@ -142,7 +183,7 @@ class TwoTouchKeyboardService : InputMethodService() {
         clearCandidateUi()
     }
 
-    /** ステートマシンの状態に応じて全ボタンのテキストラベルを更新する */
+    /** 入力モード・ステートマシン状態に応じて全ボタンのラベルを再描画する */
     private fun updateKeyLabels() {
         keyButtons.forEach { (key, button) ->
             button.text = stateMachine.getKeyLabel(key)

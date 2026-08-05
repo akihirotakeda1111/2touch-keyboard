@@ -8,13 +8,17 @@ import kotlinx.coroutines.delay
  */
 class DummyConversionEngine {
 
-    suspend fun convert(input: String): List<String> {
+    suspend fun convert(input: String, mode: InputMode = InputMode.HIRAGANA): List<String> {
         delay(100)
         if (input.isEmpty()) return emptyList()
-        return lookupCandidates(input)
+        return when (mode) {
+            InputMode.HIRAGANA -> lookupHiraganaCandidates(input)
+            InputMode.ALPHABET -> lookupAlphabetCandidates(input)
+            InputMode.NUMBER -> listOf(input)
+        }
     }
 
-    private fun lookupCandidates(input: String): List<String> {
+    private fun lookupHiraganaCandidates(input: String): List<String> {
         CANDIDATE_MAP[input]?.let { return it }
 
         val fallback = listOf(
@@ -23,6 +27,12 @@ class DummyConversionEngine {
             "${input}語",
         )
         return fallback.distinct()
+    }
+
+    private fun lookupAlphabetCandidates(input: String): List<String> {
+        val upper = input.uppercase()
+        val lower = input.lowercase()
+        return listOf(lower, upper, "${lower}ing", "${lower}s").distinct()
     }
 
     private fun toFakeKanji(input: String): String {
