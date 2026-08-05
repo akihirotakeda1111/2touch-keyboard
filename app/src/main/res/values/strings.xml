@@ -7,4 +7,5 @@
     <string name="setup_instructions">2Touch Keyboard を使うには、キーボードを有効化して選択してください。</string>
     <string name="open_ime_settings">キーボード設定を開く</string>
     <string name="open_ime_picker">キーボードを切り替える</string>
+    <string name="settings_title">キーボード設定</string>
 </resources>

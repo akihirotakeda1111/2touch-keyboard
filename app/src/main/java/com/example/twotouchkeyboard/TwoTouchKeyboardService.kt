@@ -9,25 +9,62 @@ import android.widget.Button
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.LifecycleRegistry
+import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-class TwoTouchKeyboardService : InputMethodService() {
+class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
 
-    private lateinit var stateMachine: TwoTouchStateMachine
+    private val lifecycleRegistry = LifecycleRegistry(this)
+    override val lifecycle: Lifecycle get() = lifecycleRegistry
+
+    private lateinit var coordinator: KeyboardInputCoordinator
     private lateinit var candidateScroll: HorizontalScrollView
     private lateinit var candidateContainer: LinearLayout
+    private lateinit var settingsRepository: SettingsRepository
 
-    private val keyButtons: MutableMap<TwoTouchStateMachine.Key, Button> = mutableMapOf()
+    private val keyButtons: MutableMap<KeyboardKey, Button> = mutableMapOf()
     private val conversionEngine = DummyConversionEngine()
 
     private val conversionScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var conversionJob: Job? = null
+    private var settingsCollectJob: Job? = null
+
+    private var currentHiraganaMethod = CharacterInputMethod.TWOTOUCH
+    private var currentAlphabetMethod = CharacterInputMethod.TOGGLE
+
+    override fun onCreate() {
+        lifecycleRegistry.currentState = Lifecycle.State.CREATED
+        super.onCreate()
+        lifecycleRegistry.currentState = Lifecycle.State.STARTED
+
+        settingsRepository = SettingsRepository(applicationContext)
+        settingsCollectJob = lifecycleScope.launch {
+            combine(
+                settingsRepository.hiraganaInputMode,
+                settingsRepository.alphabetInputMode,
+            ) { hiragana, alphabet ->
+                hiragana to alphabet
+            }.collect { (hiragana, alphabet) ->
+                currentHiraganaMethod = hiragana
+                currentAlphabetMethod = alphabet
+                if (::coordinator.isInitialized) {
+                    coordinator.setHiraganaInputMethod(hiragana)
+                    coordinator.setAlphabetInputMethod(alphabet)
+                    updateKeyLabels()
+                }
+            }
+        }
+    }
 
     override fun onCreateInputView(): View {
         val keyboardView = layoutInflater.inflate(R.layout.keyboard_view, null)
@@ -39,12 +76,9 @@ class TwoTouchKeyboardService : InputMethodService() {
         candidateScroll = keyboardView.findViewById(R.id.candidate_scroll)
         candidateContainer = keyboardView.findViewById(R.id.candidate_container)
 
-        stateMachine = TwoTouchStateMachine(
-            listener = object : TwoTouchStateMachine.Listener {
-                override fun onStateChanged(
-                    state: TwoTouchStateMachine.State,
-                    rowKey: Int?,
-                ) {
+        coordinator = KeyboardInputCoordinator(
+            listener = object : KeyboardInputCoordinator.Listener {
+                override fun onStateChanged() {
                     updateKeyLabels()
                 }
 
@@ -59,28 +93,31 @@ class TwoTouchKeyboardService : InputMethodService() {
             },
         )
 
-        bindKey(keyboardView, R.id.key_1, TwoTouchStateMachine.Key.Digit(1))
-        bindKey(keyboardView, R.id.key_2, TwoTouchStateMachine.Key.Digit(2))
-        bindKey(keyboardView, R.id.key_3, TwoTouchStateMachine.Key.Digit(3))
-        bindKey(keyboardView, R.id.key_4, TwoTouchStateMachine.Key.Digit(4))
-        bindKey(keyboardView, R.id.key_5, TwoTouchStateMachine.Key.Digit(5))
-        bindKey(keyboardView, R.id.key_6, TwoTouchStateMachine.Key.Digit(6))
-        bindKey(keyboardView, R.id.key_7, TwoTouchStateMachine.Key.Digit(7))
-        bindKey(keyboardView, R.id.key_8, TwoTouchStateMachine.Key.Digit(8))
-        bindKey(keyboardView, R.id.key_9, TwoTouchStateMachine.Key.Digit(9))
-        bindKey(keyboardView, R.id.key_star, TwoTouchStateMachine.Key.Star)
-        bindKey(keyboardView, R.id.key_0, TwoTouchStateMachine.Key.Zero)
-        bindKey(keyboardView, R.id.key_hash, TwoTouchStateMachine.Key.Hash)
+        coordinator.setHiraganaInputMethod(currentHiraganaMethod)
+        coordinator.setAlphabetInputMethod(currentAlphabetMethod)
+
+        bindKey(keyboardView, R.id.key_1, KeyboardKey.Digit(1))
+        bindKey(keyboardView, R.id.key_2, KeyboardKey.Digit(2))
+        bindKey(keyboardView, R.id.key_3, KeyboardKey.Digit(3))
+        bindKey(keyboardView, R.id.key_4, KeyboardKey.Digit(4))
+        bindKey(keyboardView, R.id.key_5, KeyboardKey.Digit(5))
+        bindKey(keyboardView, R.id.key_6, KeyboardKey.Digit(6))
+        bindKey(keyboardView, R.id.key_7, KeyboardKey.Digit(7))
+        bindKey(keyboardView, R.id.key_8, KeyboardKey.Digit(8))
+        bindKey(keyboardView, R.id.key_9, KeyboardKey.Digit(9))
+        bindKey(keyboardView, R.id.key_star, KeyboardKey.Star)
+        bindKey(keyboardView, R.id.key_0, KeyboardKey.Zero)
+        bindKey(keyboardView, R.id.key_hash, KeyboardKey.Hash)
 
         updateKeyLabels()
         return keyboardView
     }
 
-    private fun bindKey(root: View, viewId: Int, key: TwoTouchStateMachine.Key) {
+    private fun bindKey(root: View, viewId: Int, key: KeyboardKey) {
         val button = root.findViewById<Button>(viewId)
         keyButtons[key] = button
         button.setOnClickListener {
-            if (key == TwoTouchStateMachine.Key.Star) {
+            if (key == KeyboardKey.Star) {
                 switchInputMode()
             } else {
                 handleKeyPress(key)
@@ -88,39 +125,36 @@ class TwoTouchKeyboardService : InputMethodService() {
         }
     }
 
-    private fun handleKeyPress(key: TwoTouchStateMachine.Key) {
-        if (stateMachine.inputMode == InputMode.NUMBER) {
+    private fun handleKeyPress(key: KeyboardKey) {
+        if (coordinator.inputMode == InputMode.NUMBER) {
             handleNumberModeKey(key)
             return
         }
-        stateMachine.onKeyPressed(key)
+        coordinator.onKeyPressed(key)
     }
 
-    /** NUMBER モード: 1 タッチで即 commitText */
-    private fun handleNumberModeKey(key: TwoTouchStateMachine.Key) {
+    private fun handleNumberModeKey(key: KeyboardKey) {
         val text = when (key) {
-            is TwoTouchStateMachine.Key.Digit -> key.number.toString()
-            TwoTouchStateMachine.Key.Zero -> "0"
-            TwoTouchStateMachine.Key.Hash -> "#"
-            TwoTouchStateMachine.Key.Star -> return
+            is KeyboardKey.Digit -> key.number.toString()
+            KeyboardKey.Zero -> "0"
+            KeyboardKey.Hash -> "#"
+            KeyboardKey.Star -> return
         }
         currentInputConnection?.commitText(text, 1)
     }
 
-    /**
-     * モード切替: WAITING_VOWEL を破棄し、未確定文字列があれば強制確定してから巡回する。
-     */
     private fun switchInputMode() {
         forceCommitComposingText()
-        stateMachine.cycleInputMode()
+        coordinator.cycleInputMode()
         updateKeyLabels()
     }
 
     private fun forceCommitComposingText() {
-        val composingText = stateMachine.getComposingText()
+        coordinator.confirmAllPendingInput()
+        val composingText = coordinator.getComposingText()
         if (composingText.isEmpty()) return
         currentInputConnection?.commitText(composingText, 1)
-        stateMachine.clearComposingText()
+        coordinator.clearComposingText()
         clearCandidateUi()
     }
 
@@ -142,9 +176,9 @@ class TwoTouchKeyboardService : InputMethodService() {
 
         conversionJob = conversionScope.launch {
             val candidates = withContext(Dispatchers.Default) {
-                conversionEngine.convert(input, stateMachine.inputMode)
+                conversionEngine.convert(input, coordinator.inputMode)
             }
-            if (input != stateMachine.getComposingText()) return@launch
+            if (input != coordinator.getComposingText()) return@launch
             updateCandidateUi(candidates)
         }
     }
@@ -179,14 +213,14 @@ class TwoTouchKeyboardService : InputMethodService() {
     private fun commitCandidate(candidate: String) {
         val inputConnection = currentInputConnection ?: return
         inputConnection.commitText(candidate, 1)
-        stateMachine.clearComposingText()
+        coordinator.clearComposingText()
+        coordinator.resetInputSession()
         clearCandidateUi()
     }
 
-    /** 入力モード・ステートマシン状態に応じて全ボタンのラベルを再描画する */
     private fun updateKeyLabels() {
         keyButtons.forEach { (key, button) ->
-            button.text = stateMachine.getKeyLabel(key)
+            button.text = coordinator.getKeyLabel(key)
         }
     }
 
@@ -207,15 +241,26 @@ class TwoTouchKeyboardService : InputMethodService() {
 
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
-        if (::stateMachine.isInitialized) {
+        if (::coordinator.isInitialized) {
             conversionJob?.cancel()
-            stateMachine.resetInputSession()
+            coordinator.resetInputSession()
             clearCandidateUi()
             currentInputConnection?.finishComposingText()
         }
     }
 
+    override fun onFinishInputView(finishingInput: Boolean) {
+        if (::coordinator.isInitialized) {
+            forceCommitComposingText()
+            coordinator.resetInputSession()
+            clearCandidateUi()
+        }
+        super.onFinishInputView(finishingInput)
+    }
+
     override fun onDestroy() {
+        lifecycleRegistry.currentState = Lifecycle.State.DESTROYED
+        settingsCollectJob?.cancel()
         conversionScope.cancel()
         super.onDestroy()
     }
