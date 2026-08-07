@@ -17,6 +17,9 @@ interface InputProcessor {
     fun onEnter(ic: InputConnection, editorInfo: EditorInfo?)
     fun onSpace(ic: InputConnection)
     fun onCursorMove(ic: InputConnection, direction: Int)
+
+    /** 2タッチ待ち・トグル中など、数字キーが文字入力に使われる状態か */
+    fun isMidCharacterInput(): Boolean = false
 }
 
 interface InputProcessorHost {

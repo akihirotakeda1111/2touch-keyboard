@@ -84,6 +84,8 @@ class KeyboardInputCoordinator(
 
     fun getComposingText(): String = currentPreview
 
+    fun isMidCharacterInput(): Boolean = activeProcessor().isMidCharacterInput()
+
     fun clearComposingText() {
         if (confirmedBuffer.isEmpty() && currentPreview.isEmpty()) return
         confirmedBuffer.clear()
