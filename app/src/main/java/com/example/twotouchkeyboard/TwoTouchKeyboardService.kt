@@ -307,8 +307,10 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
             conversionSession.resetConversionEnd(composingText.length)
         }
         lastComposingTextForConversion = composingText
-        updateComposingText(composingText)
-        requestConversion(composingText)
+        if (!suppressConversionReset) {
+            updateComposingText(composingText)
+            requestConversion(composingText)
+        }
     }
 
     private fun updateComposingText(text: String) {
@@ -390,12 +392,11 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
             }
 
             textView.setOnClickListener {
-                if (conversionSession.isActive) {
-                    applyPartialConversion(candidate)
-                } else {
-                    enterConversionMode()
-                    applyPartialConversion(candidate)
+                val composing = coordinator.getComposingText()
+                if (!conversionSession.isActive && conversionSession.getCandidates().isNotEmpty()) {
+                    conversionSession.activate(composing.length)
                 }
+                applyPartialConversion(candidate)
             }
             candidateContainer.addView(itemView)
         }
@@ -431,18 +432,35 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         val composing = coordinator.getComposingText()
         if (composing.isEmpty()) return
 
+        val inputConnection = currentInputConnection ?: return
         val suffix = conversionSession.getRemainingSuffix(composing)
-        val newComposing = candidate + suffix
+
+        inputConnection.beginBatchEdit()
+        inputConnection.commitText(candidate, 1)
+        if (suffix.isNotEmpty()) {
+            inputConnection.setComposingText(suffix, 1)
+        } else {
+            inputConnection.finishComposingText()
+        }
+        inputConnection.endBatchEdit()
 
         suppressConversionReset = true
-        coordinator.setComposingFromConversion(newComposing)
-        suppressConversionReset = false
+        if (suffix.isNotEmpty()) {
+            coordinator.setComposingFromConversion(suffix)
+        } else {
+            coordinator.clearComposingState()
+        }
 
         conversionSession.deactivate()
-        conversionSession.resetConversionEnd(newComposing.length)
-        lastComposingTextForConversion = newComposing
-        updateComposingText(newComposing)
-        requestConversion(newComposing)
+        lastComposingTextForConversion = suffix
+
+        if (suffix.isNotEmpty()) {
+            conversionSession.resetConversionEnd(suffix.length)
+            requestConversion(suffix, activateOnResult = true)
+        } else {
+            resetConversionState()
+        }
+        suppressConversionReset = false
     }
 
     private fun updateKeyLabels() {

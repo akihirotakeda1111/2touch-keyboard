@@ -5,7 +5,7 @@ package com.example.twotouchkeyboard
  *
  * - 入力中: 候補はプレビュー表示のみ
  * - 変換モード: Space で開始、←→ で変換範囲（部分変換）を調整
- * - 確定: 数字キー / Space / Enter（矢印では確定しない）
+ * - 確定: 数字キー / Space で変換部分を確定し、残りを引き続き変換対象にする
  */
 class ConversionSession {
 
