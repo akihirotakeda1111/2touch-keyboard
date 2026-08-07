@@ -58,11 +58,11 @@ abstract class BaseInputProcessor(
         }
     }
 
+    override fun isMidCharacterInput(): Boolean {
+        return hasPartialTwoTouchInput() || pendingChar != null
+    }
+
     override fun onSpace(ic: InputConnection) {
-        if (host.getInputMode() == InputMode.HIRAGANA && host.getComposingPreview().isNotEmpty()) {
-            host.requestConversion()
-            return
-        }
         val space = when (host.getInputMode()) {
             InputMode.HIRAGANA -> "　"
             InputMode.ALPHABET, InputMode.NUMBER -> " "

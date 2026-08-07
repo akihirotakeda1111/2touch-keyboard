@@ -9,10 +9,13 @@ import android.widget.Button
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.core.content.ContextCompat
+import androidx.core.view.isVisible
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
 import androidx.lifecycle.lifecycleScope
+import com.example.mozcengine.ConversionEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -21,7 +24,6 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import com.example.mozcengine.ConversionEngine
 
 class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
 
@@ -29,6 +31,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     override val lifecycle: Lifecycle get() = lifecycleRegistry
 
     private lateinit var coordinator: KeyboardInputCoordinator
+    private lateinit var conversionHint: TextView
     private lateinit var candidateScroll: HorizontalScrollView
     private lateinit var candidateContainer: LinearLayout
     private lateinit var settingsRepository: SettingsRepository
@@ -39,6 +42,11 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     private val conversionScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var conversionJob: Job? = null
     private var settingsCollectJob: Job? = null
+
+    private val conversionSession = ConversionSession()
+    private var pendingConversionActivation = false
+    private var lastComposingTextForConversion = ""
+    private var suppressConversionReset = false
 
     private var currentHiraganaMethod = CharacterInputMethod.TWOTOUCH
     private var currentAlphabetMethod = CharacterInputMethod.TOGGLE
@@ -75,6 +83,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
             ViewGroup.LayoutParams.WRAP_CONTENT,
         )
 
+        conversionHint = keyboardView.findViewById(R.id.conversion_hint)
         candidateScroll = keyboardView.findViewById(R.id.candidate_scroll)
         candidateContainer = keyboardView.findViewById(R.id.candidate_container)
 
@@ -85,12 +94,11 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
                 }
 
                 override fun onComposingTextUpdated(composingText: String) {
-                    updateComposingText(composingText)
-                    requestConversion(composingText)
+                    onComposingTextChanged(composingText)
                 }
 
                 override fun onInputModeChanged(mode: InputMode) {
-                    clearCandidateUi()
+                    resetConversionState()
                     updateKeyLabels()
                 }
             },
@@ -131,14 +139,177 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
 
     private fun dispatchKey(key: KeyboardKey) {
         coordinator.bindInputConnection(currentInputConnection)
+
+        if (canHandleConversionKey(key) && handleConversionKey(key)) {
+            return
+        }
+
         when (key) {
             KeyboardKey.Star -> coordinator.handleModeSwitchKey()
-            KeyboardKey.Delete -> coordinator.onDelete()
-            KeyboardKey.Enter -> coordinator.onEnter()
-            KeyboardKey.Space -> coordinator.onSpace()
-            KeyboardKey.CursorLeft -> coordinator.onCursorMove(CursorDirection.LEFT)
-            KeyboardKey.CursorRight -> coordinator.onCursorMove(CursorDirection.RIGHT)
+            KeyboardKey.Delete -> handleDeleteKey()
+            KeyboardKey.Enter -> handleEnterKey()
+            KeyboardKey.Space -> handleSpaceKey()
+            KeyboardKey.CursorLeft -> handleCursorKey(CursorDirection.LEFT)
+            KeyboardKey.CursorRight -> handleCursorKey(CursorDirection.RIGHT)
             else -> coordinator.onKeyPressed(key)
+        }
+    }
+
+    private fun canHandleConversionKey(key: KeyboardKey): Boolean {
+        if (coordinator.getInputMode() != InputMode.HIRAGANA) return false
+        if (coordinator.getComposingText().isEmpty()) return false
+        if (coordinator.isMidCharacterInput()) return false
+
+        if (conversionSession.isActive) {
+            return key is KeyboardKey.Digit ||
+                key == KeyboardKey.Space ||
+                key == KeyboardKey.Enter ||
+                key == KeyboardKey.Delete ||
+                key == KeyboardKey.CursorLeft ||
+                key == KeyboardKey.CursorRight
+        }
+
+        return key == KeyboardKey.Space ||
+            key == KeyboardKey.CursorLeft ||
+            key == KeyboardKey.CursorRight
+    }
+
+    private fun handleConversionKey(key: KeyboardKey): Boolean {
+        return when (key) {
+            KeyboardKey.Space -> {
+                handleSpaceKey()
+                true
+            }
+            is KeyboardKey.Digit -> {
+                if (!conversionSession.isActive) return false
+                val candidate = conversionSession.candidateForDigit(key.number) ?: return false
+                applyPartialConversion(candidate)
+                true
+            }
+            KeyboardKey.Enter -> {
+                handleEnterKey()
+                true
+            }
+            KeyboardKey.CursorLeft -> {
+                adjustConversionBoundary(CursorDirection.LEFT)
+                true
+            }
+            KeyboardKey.CursorRight -> {
+                adjustConversionBoundary(CursorDirection.RIGHT)
+                true
+            }
+            KeyboardKey.Delete -> {
+                handleDeleteKey()
+                true
+            }
+            else -> false
+        }
+    }
+
+    private fun handleSpaceKey() {
+        if (coordinator.getInputMode() == InputMode.HIRAGANA &&
+            coordinator.getComposingText().isNotEmpty() &&
+            !coordinator.isMidCharacterInput()
+        ) {
+            if (conversionSession.isActive) {
+                conversionSession.getSelectedCandidate()?.let { applyPartialConversion(it) }
+                return
+            }
+            enterConversionMode()
+            return
+        }
+        coordinator.onSpace()
+    }
+
+    private fun handleEnterKey() {
+        if (conversionSession.isActive) {
+            conversionSession.deactivate()
+            refreshConversionUi()
+        }
+        coordinator.onEnter()
+    }
+
+    private fun handleDeleteKey() {
+        if (conversionSession.isActive) {
+            conversionSession.deactivate()
+            pendingConversionActivation = false
+            refreshConversionUi()
+            return
+        }
+        coordinator.onDelete()
+    }
+
+    private fun handleCursorKey(direction: Int) {
+        if (coordinator.getInputMode() == InputMode.HIRAGANA &&
+            coordinator.getComposingText().isNotEmpty() &&
+            !coordinator.isMidCharacterInput()
+        ) {
+            adjustConversionBoundary(direction)
+            return
+        }
+        coordinator.onCursorMove(direction)
+    }
+
+    private fun enterConversionMode() {
+        val composing = coordinator.getComposingText()
+        pendingConversionActivation = true
+        conversionSession.resetConversionEnd(composing.length)
+        if (conversionSession.getCandidates().isNotEmpty()) {
+            conversionSession.activate(composing.length)
+            pendingConversionActivation = false
+            refreshConversionUi()
+        } else {
+            requestConversion(composing, activateOnResult = true)
+        }
+    }
+
+    private fun adjustConversionBoundary(direction: Int) {
+        val composing = coordinator.getComposingText()
+        if (composing.isEmpty()) return
+
+        if (!conversionSession.isActive) {
+            conversionSession.resetConversionEnd(composing.length)
+            conversionSession.activate(composing.length)
+        }
+
+        conversionSession.moveConversionEnd(direction, composing.length)
+        requestConversion(composing)
+        refreshConversionUi()
+    }
+
+    private fun refreshConversionUi() {
+        updateConversionHint()
+        updateCandidateUi(conversionSession.getCandidates())
+        updateKeyLabels()
+    }
+
+    private fun updateConversionHint() {
+        val composing = coordinator.getComposingText()
+        if (!conversionSession.isActive || composing.isEmpty()) {
+            conversionHint.isVisible = false
+            return
+        }
+
+        val target = conversionSession.getConversionTarget(composing)
+        val suffix = conversionSession.getRemainingSuffix(composing)
+        conversionHint.text = if (suffix.isEmpty()) {
+            getString(R.string.conversion_hint_full, target)
+        } else {
+            getString(R.string.conversion_hint_partial, target, suffix)
+        }
+        conversionHint.isVisible = true
+    }
+
+    private fun onComposingTextChanged(composingText: String) {
+        if (!suppressConversionReset && composingText != lastComposingTextForConversion) {
+            conversionSession.deactivate()
+            pendingConversionActivation = false
+            conversionSession.resetConversionEnd(composingText.length)
+        }
+        lastComposingTextForConversion = composingText
+        if (!suppressConversionReset) {
+            updateComposingText(composingText)
+            requestConversion(composingText)
         }
     }
 
@@ -151,60 +322,165 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         }
     }
 
-    private fun requestConversion(input: String) {
+    private fun requestConversion(
+        composing: String,
+        activateOnResult: Boolean = false,
+    ) {
         conversionJob?.cancel()
-        if (input.isEmpty()) {
-            clearCandidateUi()
+        if (composing.isEmpty()) {
+            resetConversionState()
             return
         }
 
+        if (activateOnResult) {
+            pendingConversionActivation = true
+        }
+
+        val target = resolveConversionTarget(composing)
+        val requestComposing = composing
+
         conversionJob = conversionScope.launch {
             val candidates = withContext(Dispatchers.Default) {
-                conversionEngine.convert(input, coordinator.getInputMode().toConversionMode())
+                conversionEngine.convert(target, coordinator.getInputMode().toConversionMode())
             }
-            if (input != coordinator.getComposingText()) return@launch
-            updateCandidateUi(candidates)
+            if (requestComposing != coordinator.getComposingText()) return@launch
+
+            conversionSession.setCandidates(candidates)
+            if (pendingConversionActivation && candidates.isNotEmpty()) {
+                conversionSession.activate(requestComposing.length)
+                pendingConversionActivation = false
+            }
+            refreshConversionUi()
         }
+    }
+
+    private fun resolveConversionTarget(composing: String): String {
+        if (conversionSession.isActive || pendingConversionActivation) {
+            return conversionSession.getConversionTarget(composing)
+        }
+        return composing
     }
 
     private fun updateCandidateUi(candidates: List<String>) {
         candidateContainer.removeAllViews()
         if (candidates.isEmpty()) {
-            clearCandidateUi()
+            candidateScroll.visibility = View.GONE
             return
         }
 
         val inflater = LayoutInflater.from(this)
-        candidates.forEach { candidate ->
+        val selectedIndex = conversionSession.getSelectedIndex()
+        val showShortcuts = conversionSession.isActive
+
+        candidates.forEachIndexed { index, candidate ->
             val itemView = inflater.inflate(R.layout.suggest_item, candidateContainer, false)
             val textView = itemView.findViewById<TextView>(R.id.candidate_text)
-            textView.text = candidate
+            textView.text = formatCandidateLabel(candidate, index, showShortcuts)
+
+            if (showShortcuts && index == selectedIndex) {
+                itemView.setBackgroundColor(
+                    ContextCompat.getColor(this, R.color.candidate_selected_background),
+                )
+                textView.setTextColor(
+                    ContextCompat.getColor(this, R.color.candidate_selected_text),
+                )
+            } else {
+                itemView.setBackgroundResource(android.R.drawable.list_selector_background)
+                textView.setTextColor(
+                    ContextCompat.getColor(this, R.color.candidate_text),
+                )
+            }
+
             textView.setOnClickListener {
-                commitCandidate(candidate)
+                val composing = coordinator.getComposingText()
+                if (!conversionSession.isActive && conversionSession.getCandidates().isNotEmpty()) {
+                    conversionSession.activate(composing.length)
+                }
+                applyPartialConversion(candidate)
             }
             candidateContainer.addView(itemView)
         }
+
         candidateScroll.visibility = View.VISIBLE
-        candidateScroll.scrollTo(0, 0)
+        scrollToSelectedCandidate(selectedIndex)
     }
 
-    private fun clearCandidateUi() {
+    private fun formatCandidateLabel(candidate: String, index: Int, showShortcuts: Boolean): String {
+        if (!showShortcuts || index >= MAX_CANDIDATE_SHORTCUTS) return candidate
+        return "${index + 1}. $candidate"
+    }
+
+    private fun scrollToSelectedCandidate(selectedIndex: Int) {
+        candidateScroll.post {
+            val child = candidateContainer.getChildAt(selectedIndex) ?: return@post
+            val scrollX = child.left - (candidateScroll.width - child.width) / 2
+            candidateScroll.smoothScrollTo(scrollX.coerceAtLeast(0), 0)
+        }
+    }
+
+    private fun resetConversionState() {
         conversionJob?.cancel()
+        conversionSession.clear()
+        pendingConversionActivation = false
+        lastComposingTextForConversion = ""
+        conversionHint.isVisible = false
         candidateContainer.removeAllViews()
         candidateScroll.visibility = View.GONE
     }
 
-    private fun commitCandidate(candidate: String) {
+    private fun applyPartialConversion(candidate: String) {
+        val composing = coordinator.getComposingText()
+        if (composing.isEmpty()) return
+
         val inputConnection = currentInputConnection ?: return
+        val suffix = conversionSession.getRemainingSuffix(composing)
+
+        inputConnection.beginBatchEdit()
         inputConnection.commitText(candidate, 1)
-        coordinator.resetInputSession()
-        clearCandidateUi()
+        if (suffix.isNotEmpty()) {
+            inputConnection.setComposingText(suffix, 1)
+        } else {
+            inputConnection.finishComposingText()
+        }
+        inputConnection.endBatchEdit()
+
+        suppressConversionReset = true
+        if (suffix.isNotEmpty()) {
+            coordinator.setComposingFromConversion(suffix)
+        } else {
+            coordinator.clearComposingState()
+        }
+
+        conversionSession.deactivate()
+        lastComposingTextForConversion = suffix
+
+        if (suffix.isNotEmpty()) {
+            conversionSession.resetConversionEnd(suffix.length)
+            requestConversion(suffix, activateOnResult = true)
+        } else {
+            resetConversionState()
+        }
+        suppressConversionReset = false
     }
 
     private fun updateKeyLabels() {
         keyButtons.forEach { (key, button) ->
-            button.text = coordinator.getKeyLabel(key)
+            button.text = getKeyLabel(key)
         }
+    }
+
+    private fun getKeyLabel(key: KeyboardKey): String {
+        if (conversionSession.isActive && key is KeyboardKey.Digit && key.number in 1..9) {
+            val candidate = conversionSession.candidateForDigit(key.number)
+            if (candidate != null) {
+                return "${key.number}\n${abbreviateCandidate(candidate)}"
+            }
+        }
+        return coordinator.getKeyLabel(key)
+    }
+
+    private fun abbreviateCandidate(candidate: String): String {
+        return if (candidate.length <= 4) candidate else candidate.take(3) + "…"
     }
 
     private fun finalizeInputState() {
@@ -213,7 +489,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
             coordinator.commitComposingText(ic)
         }
         coordinator.clearComposingState()
-        clearCandidateUi()
+        resetConversionState()
     }
 
     override fun onEvaluateInputViewShown(): Boolean {
@@ -238,7 +514,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
             coordinator.bindEditorInfo(info)
             coordinator.bindInputConnection(currentInputConnection)
             coordinator.resetInputSession()
-            clearCandidateUi()
+            resetConversionState()
             currentInputConnection?.finishComposingText()
         }
     }
@@ -259,5 +535,9 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
             conversionEngine.close()
         }
         super.onDestroy()
+    }
+
+    companion object {
+        private const val MAX_CANDIDATE_SHORTCUTS = 9
     }
 }
