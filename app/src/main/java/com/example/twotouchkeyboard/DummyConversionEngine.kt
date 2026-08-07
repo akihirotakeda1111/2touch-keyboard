@@ -1,22 +1,48 @@
 package com.example.twotouchkeyboard
 
+import android.content.Context
+import android.util.Log
+import com.example.mozcengine.ConversionEngine
+import com.example.mozcengine.ConversionMode
+import com.example.mozcengine.MozcConversionEngine
 import kotlinx.coroutines.delay
+
+object ConversionEngineProvider {
+    private const val TAG = "ConversionEngineProvider"
+
+    fun create(context: Context): ConversionEngine {
+        MozcConversionEngine.tryCreate(context)?.let { engine ->
+            Log.i(TAG, "Using Mozc conversion engine")
+            return engine
+        }
+        Log.i(TAG, "Falling back to dummy conversion engine")
+        return DummyConversionEngine()
+    }
+}
+
+fun InputMode.toConversionMode(): ConversionMode = when (this) {
+    InputMode.HIRAGANA -> ConversionMode.HIRAGANA
+    InputMode.ALPHABET -> ConversionMode.ALPHABET
+    InputMode.NUMBER -> ConversionMode.NUMBER
+}
 
 /**
  * ダミー変換エンジン。
- * 将来的に Mozc エンジンへ差し替える前提のスタブ実装。
+ * libmozc.so / mozc.data が無い環境向けのフォールバック。
  */
-class DummyConversionEngine {
+class DummyConversionEngine : ConversionEngine {
 
-    suspend fun convert(input: String, mode: InputMode = InputMode.HIRAGANA): List<String> {
+    override suspend fun convert(input: String, mode: ConversionMode): List<String> {
         delay(100)
         if (input.isEmpty()) return emptyList()
         return when (mode) {
-            InputMode.HIRAGANA -> lookupHiraganaCandidates(input)
-            InputMode.ALPHABET -> lookupAlphabetCandidates(input)
-            InputMode.NUMBER -> listOf(input)
+            ConversionMode.HIRAGANA -> lookupHiraganaCandidates(input)
+            ConversionMode.ALPHABET -> lookupAlphabetCandidates(input)
+            ConversionMode.NUMBER -> listOf(input)
         }
     }
+
+    override fun close() = Unit
 
     private fun lookupHiraganaCandidates(input: String): List<String> {
         CANDIDATE_MAP[input]?.let { return it }

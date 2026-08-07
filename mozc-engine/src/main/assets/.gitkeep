@@ -1,0 +1,7 @@
+# Place mozc.data here after running scripts/build-mozc-android.sh
+#
+# Example:
+#   mozc-engine/src/main/assets/mozc.data
+#
+# Built on Linux with Bazel:
+#   bazelisk build //data_manager/oss:mozc_dataset_for_oss --config=oss_linux --compilation_mode=opt

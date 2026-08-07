@@ -1,0 +1,47 @@
+name: Build Mozc artifacts
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "scripts/build-mozc-android.sh"
+      - ".github/workflows/build-mozc.yml"
+
+jobs:
+  build-mozc:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v4
+
+      - name: Checkout Mozc
+        uses: actions/checkout@v4
+        with:
+          repository: google/mozc
+          path: third_party/mozc
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Bazelisk
+        run: |
+          curl -fsSL -o /usr/local/bin/bazelisk https://github.com/bazelbuild/bazelisk/releases/download/v1.25.0/bazelisk-linux-amd64
+          chmod +x /usr/local/bin/bazelisk
+
+      - name: Build Mozc for Android
+        run: |
+          chmod +x scripts/build-mozc-android.sh
+          ./scripts/build-mozc-android.sh third_party/mozc/src
+
+      - name: Upload Mozc artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mozc-android
+          path: |
+            mozc-engine/src/main/jniLibs/**/libmozc.so
+            mozc-engine/src/main/assets/mozc.data

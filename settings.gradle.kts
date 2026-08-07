@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "2touch-keyboard"
 include(":app")
+include(":mozc-engine")

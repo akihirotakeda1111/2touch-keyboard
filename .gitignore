@@ -70,8 +70,13 @@ Desktop.ini
 *~
 
 # =============================================================================
-# Editor / misc
+# Mozc native artifacts (built via scripts/build-mozc-android.sh)
 # =============================================================================
+
+mozc-engine/src/main/jniLibs/**/libmozc.so
+mozc-engine/src/main/assets/mozc.data
+third_party/mozc/
+
 
 *.swp
 *.swo

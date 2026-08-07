@@ -1,0 +1,7 @@
+# Place libmozc.so here after running scripts/build-mozc-android.sh
+#
+# Example:
+#   mozc-engine/src/main/jniLibs/arm64-v8a/libmozc.so
+#
+# Built on Linux/macOS with Bazel:
+#   bazelisk build package --config=oss_android --config=release_build

@@ -21,6 +21,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.example.mozcengine.ConversionEngine
 
 class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
 
@@ -33,7 +34,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     private lateinit var settingsRepository: SettingsRepository
 
     private val keyButtons: MutableMap<KeyboardKey, Button> = mutableMapOf()
-    private val conversionEngine = DummyConversionEngine()
+    private lateinit var conversionEngine: ConversionEngine
 
     private val conversionScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var conversionJob: Job? = null
@@ -48,6 +49,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         lifecycleRegistry.currentState = Lifecycle.State.STARTED
 
         settingsRepository = SettingsRepository(applicationContext)
+        conversionEngine = ConversionEngineProvider.create(applicationContext)
         settingsCollectJob = lifecycleScope.launch {
             combine(
                 settingsRepository.hiraganaInputMode,
@@ -158,7 +160,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
 
         conversionJob = conversionScope.launch {
             val candidates = withContext(Dispatchers.Default) {
-                conversionEngine.convert(input, coordinator.getInputMode())
+                conversionEngine.convert(input, coordinator.getInputMode().toConversionMode())
             }
             if (input != coordinator.getComposingText()) return@launch
             updateCandidateUi(candidates)
@@ -253,6 +255,9 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         lifecycleRegistry.currentState = Lifecycle.State.DESTROYED
         settingsCollectJob?.cancel()
         conversionScope.cancel()
+        if (::conversionEngine.isInitialized) {
+            conversionEngine.close()
+        }
         super.onDestroy()
     }
 }
