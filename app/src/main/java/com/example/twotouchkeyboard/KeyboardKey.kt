@@ -15,4 +15,8 @@ sealed class KeyboardKey {
     data object Space : KeyboardKey()
     data object CursorLeft : KeyboardKey()
     data object CursorRight : KeyboardKey()
+    data object Dakuten : KeyboardKey()
+    data object Handakuten : KeyboardKey()
+    data object SmallKana : KeyboardKey()
+    data object UppercaseToggle : KeyboardKey()
 }

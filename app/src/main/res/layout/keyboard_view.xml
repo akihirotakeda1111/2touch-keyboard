@@ -45,7 +45,7 @@
             android:id="@+id/keyboard_grid"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:columnCount="4"
+            android:columnCount="5"
             android:rowCount="5"
             android:useDefaultMargins="true">
 
@@ -134,11 +134,20 @@
                 android:text="@string/key_cursor_right" />
 
             <Button
+                android:id="@+id/key_enter"
+                style="@style/KeyboardTallKey"
+                android:layout_column="4"
+                android:layout_row="2"
+                android:layout_rowSpan="2"
+                android:text="@string/key_enter" />
+
+            <Button
                 android:id="@+id/key_star"
-                style="@style/KeyboardKey"
+                style="@style/KeyboardTallKey"
                 android:layout_column="0"
                 android:layout_row="3"
-                android:text="*" />
+                android:layout_rowSpan="2"
+                android:text="@string/key_mode_switch" />
 
             <Button
                 android:id="@+id/key_0"
@@ -155,19 +164,39 @@
                 android:text="@string/key_symbols" />
 
             <Button
-                android:id="@+id/key_enter"
-                style="@style/KeyboardFunctionKey"
+                android:id="@+id/key_small_kana"
+                style="@style/KeyboardKey"
                 android:layout_column="3"
                 android:layout_row="3"
-                android:text="@string/key_enter" />
+                android:text="@string/key_small_kana" />
 
             <Button
                 android:id="@+id/key_space"
                 style="@style/KeyboardSpaceKey"
-                android:layout_column="0"
-                android:layout_columnSpan="4"
+                android:layout_column="1"
                 android:layout_row="4"
                 android:text="@string/key_space" />
+
+            <Button
+                android:id="@+id/key_dakuten"
+                style="@style/KeyboardKey"
+                android:layout_column="2"
+                android:layout_row="4"
+                android:text="@string/key_dakuten" />
+
+            <Button
+                android:id="@+id/key_handakuten"
+                style="@style/KeyboardKey"
+                android:layout_column="3"
+                android:layout_row="4"
+                android:text="@string/key_handakuten" />
+
+            <Button
+                android:id="@+id/key_uppercase_toggle"
+                style="@style/KeyboardKey"
+                android:layout_column="4"
+                android:layout_row="4"
+                android:text="@string/key_uppercase_toggle" />
 
         </GridLayout>
 

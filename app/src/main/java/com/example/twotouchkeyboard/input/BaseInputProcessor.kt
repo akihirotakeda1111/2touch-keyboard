@@ -94,6 +94,10 @@ abstract class BaseInputProcessor(
             KeyboardKey.Space -> "Space"
             KeyboardKey.CursorLeft -> "←"
             KeyboardKey.CursorRight -> "→"
+            KeyboardKey.Dakuten -> "濁点"
+            KeyboardKey.Handakuten -> "半濁"
+            KeyboardKey.SmallKana -> "小"
+            KeyboardKey.UppercaseToggle -> "大"
             else -> ""
         }
     }

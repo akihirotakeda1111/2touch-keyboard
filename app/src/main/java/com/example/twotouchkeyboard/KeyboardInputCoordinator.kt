@@ -8,6 +8,7 @@ import com.example.twotouchkeyboard.input.HiraganaTwoTouchProcessor
 import com.example.twotouchkeyboard.input.InputProcessor
 import com.example.twotouchkeyboard.input.InputProcessorHost
 import com.example.twotouchkeyboard.input.NumberInputProcessor
+import com.example.twotouchkeyboard.input.UppercaseToggleSupport
 import android.view.inputmethod.EditorInfo
 
 /**
@@ -151,6 +152,36 @@ class KeyboardInputCoordinator(
         numberProcessor.resetInputSession()
         clearComposingText()
         listener.onStateChanged()
+    }
+
+    fun applyKanaModifier(key: KeyboardKey) {
+        if (currentInputMode != InputMode.HIRAGANA || fieldProfile.passthroughEnabled) return
+
+        activeProcessor().confirmPendingInput()
+        activeProcessor().resetPartialInput()
+        if (confirmedBuffer.isEmpty()) return
+
+        val lastIndex = confirmedBuffer.lastIndex
+        val transformed = when (key) {
+            KeyboardKey.Dakuten -> KanaModifier.applyDakuten(confirmedBuffer[lastIndex])
+            KeyboardKey.Handakuten -> KanaModifier.applyHandakuten(confirmedBuffer[lastIndex])
+            KeyboardKey.SmallKana -> KanaModifier.applySmallKana(confirmedBuffer[lastIndex])
+            else -> null
+        } ?: return
+
+        confirmedBuffer[lastIndex] = transformed
+        currentPreview = confirmedBuffer.toString()
+        listener.onComposingTextUpdated(currentPreview)
+    }
+
+    fun toggleUppercase() {
+        if (currentInputMode != InputMode.ALPHABET) return
+        (activeProcessor() as? UppercaseToggleSupport)?.toggleUppercase()
+        listener.onStateChanged()
+    }
+
+    fun isUppercasePreferred(): Boolean {
+        return (activeProcessor() as? UppercaseToggleSupport)?.isUppercasePreferred() == true
     }
 
     fun confirmAllPendingInput() {

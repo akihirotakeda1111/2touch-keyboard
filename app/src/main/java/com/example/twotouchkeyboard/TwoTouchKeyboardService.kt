@@ -147,6 +147,10 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         bindKey(keyboardView, R.id.key_space, KeyboardKey.Space)
         bindKey(keyboardView, R.id.key_cursor_left, KeyboardKey.CursorLeft)
         bindKey(keyboardView, R.id.key_cursor_right, KeyboardKey.CursorRight)
+        bindKey(keyboardView, R.id.key_dakuten, KeyboardKey.Dakuten)
+        bindKey(keyboardView, R.id.key_handakuten, KeyboardKey.Handakuten)
+        bindKey(keyboardView, R.id.key_small_kana, KeyboardKey.SmallKana)
+        bindKey(keyboardView, R.id.key_uppercase_toggle, KeyboardKey.UppercaseToggle)
         bindSymbolKeyboard(keyboardView)
 
         updateKeyLabels()
@@ -192,6 +196,16 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
                 } else {
                     coordinator.onKeyPressed(key)
                 }
+            }
+            KeyboardKey.Dakuten,
+            KeyboardKey.Handakuten,
+            KeyboardKey.SmallKana,
+            -> {
+                coordinator.applyKanaModifier(key)
+            }
+            KeyboardKey.UppercaseToggle -> {
+                coordinator.toggleUppercase()
+                updateKeyLabels()
             }
             KeyboardKey.Delete -> handleDeleteKey()
             KeyboardKey.Enter -> handleEnterKey()
@@ -571,6 +585,9 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     private fun getKeyLabel(key: KeyboardKey): String {
         if (key == KeyboardKey.Hash) {
             return getString(R.string.key_symbols)
+        }
+        if (key == KeyboardKey.UppercaseToggle && coordinator.isUppercasePreferred()) {
+            return getString(R.string.key_uppercase_toggle) + "●"
         }
         if (conversionSession.isActive && key is KeyboardKey.Digit && key.number in 1..9) {
             val candidate = conversionSession.candidateForDigit(key.number)

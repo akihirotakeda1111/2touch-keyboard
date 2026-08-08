@@ -34,7 +34,7 @@ class HiraganaTwoTouchProcessor(
                 idleHeadLabels = KeyboardMappings.hiraganaRowHeadLabels,
                 validIdleRange = 1..9,
             )
-            KeyboardKey.Star -> MODE_LABEL
+            KeyboardKey.Star -> "$MODE_SWITCH_LABEL\n$MODE_LABEL"
             KeyboardKey.Zero -> "0"
             else -> super.getKeyLabel(key)
         }
@@ -92,5 +92,6 @@ class HiraganaTwoTouchProcessor(
 
     companion object {
         private const val MODE_LABEL = "あ"
+        private const val MODE_SWITCH_LABEL = "切替"
     }
 }
