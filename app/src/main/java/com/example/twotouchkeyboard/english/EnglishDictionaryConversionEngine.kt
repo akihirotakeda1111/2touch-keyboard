@@ -27,8 +27,8 @@ class EnglishDictionaryConversionEngine(
 
         return withContext(Dispatchers.Default) {
             val dict = loadDictionary()
-            val predictions = dict.predict(input, limit = EnglishPrefixDictionary.MAX_CANDIDATES)
-            AlphabetPredictionSupport.prepareEnglishCandidates(predictions + input, input)
+            val suggestions = dict.suggest(input, limit = EnglishPrefixDictionary.MAX_CANDIDATES)
+            AlphabetPredictionSupport.prepareEnglishCandidates(suggestions + input, input)
         }
     }
 
