@@ -19,6 +19,12 @@
             </intent-filter>
         </activity>
 
+        <!-- 入力形式お試し画面 -->
+        <activity
+            android:name=".InputTryActivity"
+            android:exported="false"
+            android:label="@string/input_try_title" />
+
         <!-- IME 有効化の案内用 -->
         <activity
             android:name=".MainActivity"

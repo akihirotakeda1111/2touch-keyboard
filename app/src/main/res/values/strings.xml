@@ -8,6 +8,7 @@
     <string name="open_ime_settings">キーボード設定を開く</string>
     <string name="open_ime_picker">キーボードを切り替える</string>
     <string name="settings_title">キーボード設定</string>
+    <string name="input_try_title">お試し入力</string>
     <string name="key_delete">削除</string>
     <string name="key_enter">↵</string>
     <string name="key_space">Space</string>

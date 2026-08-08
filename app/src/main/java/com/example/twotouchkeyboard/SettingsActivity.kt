@@ -50,6 +50,9 @@ class SettingsActivity : ComponentActivity() {
             MaterialTheme {
                 SettingsScreen(
                     repository = settingsRepository,
+                    onOpenInputTry = {
+                        startActivity(Intent(this, InputTryActivity::class.java))
+                    },
                     onOpenImeSettings = {
                         startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
                     },
@@ -66,6 +69,7 @@ class SettingsActivity : ComponentActivity() {
 @Composable
 private fun SettingsScreen(
     repository: SettingsRepository,
+    onOpenInputTry: () -> Unit,
     onOpenImeSettings: () -> Unit,
     onOpenImePicker: () -> Unit,
 ) {
@@ -121,6 +125,27 @@ private fun SettingsScreen(
                     scope.launch { repository.setToggleAutoCommitTimeoutMs(timeoutMs) }
                 },
             )
+
+            Spacer(modifier = Modifier.height(32.dp))
+            HorizontalDivider()
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Text(
+                text = "お試し入力",
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "入力形式ごとに 2Touch Keyboard の動作を試せます。",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(
+                onClick = onOpenInputTry,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("お試し入力を開く")
+            }
 
             Spacer(modifier = Modifier.height(32.dp))
             HorizontalDivider()
