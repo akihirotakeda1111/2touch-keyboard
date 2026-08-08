@@ -74,6 +74,20 @@ object AlphabetPredictionSupport {
         }
     }
 
+    fun hasConversionCandidates(candidates: List<String>, input: String): Boolean {
+        if (hasPredictiveCandidates(candidates, input)) return true
+        if (input.length < MIN_LENGTH_FOR_SPELL_CORRECTION || candidates.isEmpty()) return false
+
+        val lowerInput = input.lowercase()
+        return candidates.any { candidate ->
+            isEnglishWordCandidate(candidate) &&
+                !candidate.equals(input, ignoreCase = true) &&
+                !candidate.lowercase().startsWith(lowerInput)
+        }
+    }
+
+    private const val MIN_LENGTH_FOR_SPELL_CORRECTION = 4
+
     private fun isEnglishCandidateChar(char: Char): Boolean {
         return char in 'a'..'z' ||
             char in 'A'..'Z' ||

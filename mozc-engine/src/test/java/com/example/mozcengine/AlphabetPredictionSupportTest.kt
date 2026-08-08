@@ -81,4 +81,34 @@ class AlphabetPredictionSupportTest {
 
         assertEquals(listOf("help"), prepared)
     }
+
+    @Test
+    fun hasConversionCandidates_returnsTrue_forSpellCorrections() {
+        assertTrue(
+            AlphabetPredictionSupport.hasConversionCandidates(
+                candidates = listOf("help"),
+                input = "hlep",
+            ),
+        )
+    }
+
+    @Test
+    fun hasConversionCandidates_returnsFalse_whenOnlyInputIsPresent() {
+        assertFalse(
+            AlphabetPredictionSupport.hasConversionCandidates(
+                candidates = listOf("hlep"),
+                input = "hlep",
+            ),
+        )
+    }
+
+    @Test
+    fun hasConversionCandidates_returnsFalse_forShortInputCorrections() {
+        assertFalse(
+            AlphabetPredictionSupport.hasConversionCandidates(
+                candidates = listOf("help"),
+                input = "hep",
+            ),
+        )
+    }
 }
