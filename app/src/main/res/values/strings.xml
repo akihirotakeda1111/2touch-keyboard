@@ -10,6 +10,8 @@
     <string name="settings_title">キーボード設定</string>
     <string name="input_try_title">お試し入力</string>
     <string name="key_delete">削除</string>
+    <string name="key_symbols">記号</string>
+    <string name="key_symbol_close">閉じる</string>
     <string name="key_enter">↵</string>
     <string name="key_space">Space</string>
     <string name="key_cursor_left">←</string>

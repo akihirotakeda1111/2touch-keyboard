@@ -11,7 +11,6 @@ class HiraganaTwoTouchProcessor(
 
     private sealed class ActiveRow {
         data class Hiragana(val row: Int) : ActiveRow()
-        data object Symbol : ActiveRow()
     }
 
     var state: State = State.IDLE
@@ -37,7 +36,6 @@ class HiraganaTwoTouchProcessor(
             )
             KeyboardKey.Star -> MODE_LABEL
             KeyboardKey.Zero -> "0"
-            KeyboardKey.Hash -> if (state == State.IDLE) "#\n、" else "#"
             else -> super.getKeyLabel(key)
         }
     }
@@ -60,7 +58,6 @@ class HiraganaTwoTouchProcessor(
                 if (key.number !in 1..9) return
                 transitionTo(State.WAITING_VOWEL, ActiveRow.Hiragana(key.number))
             }
-            KeyboardKey.Hash -> transitionTo(State.WAITING_VOWEL, ActiveRow.Symbol)
             else -> Unit
         }
     }
@@ -69,20 +66,11 @@ class HiraganaTwoTouchProcessor(
         when (key) {
             is KeyboardKey.Digit -> {
                 if (key.number !in 1..5) return
-                val row = activeRow ?: return
+                val row = activeRow as? ActiveRow.Hiragana ?: return
                 val index = key.number - 1
-                val character = when (row) {
-                    is ActiveRow.Hiragana -> {
-                        val chars = KeyboardMappings.hiraganaRows[row.row] ?: return
-                        if (index >= chars.length) return
-                        chars[index].toString()
-                    }
-                    ActiveRow.Symbol -> {
-                        if (index >= KeyboardMappings.symbolRow.length) return
-                        KeyboardMappings.symbolRow[index].toString()
-                    }
-                }
-                host.appendConfirmedCharacter(character)
+                val chars = KeyboardMappings.hiraganaRows[row.row] ?: return
+                if (index >= chars.length) return
+                host.appendConfirmedCharacter(chars[index].toString())
                 transitionTo(State.IDLE, activeRow = null)
             }
             else -> Unit
@@ -92,7 +80,6 @@ class HiraganaTwoTouchProcessor(
     private fun activeRowChars(): String? {
         return when (val row = activeRow) {
             is ActiveRow.Hiragana -> KeyboardMappings.hiraganaRows[row.row]
-            ActiveRow.Symbol -> KeyboardMappings.symbolRow
             null -> null
         }
     }

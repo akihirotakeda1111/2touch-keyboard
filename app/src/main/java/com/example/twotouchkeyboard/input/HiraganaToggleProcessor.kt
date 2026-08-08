@@ -9,7 +9,6 @@ class HiraganaToggleProcessor(
 
     private sealed class ActiveKey {
         data class Hiragana(val row: Int) : ActiveKey()
-        data object Symbol : ActiveKey()
     }
 
     private var activeKey: ActiveKey? = null
@@ -21,7 +20,6 @@ class HiraganaToggleProcessor(
                 if (key.number !in 1..9) return
                 handleToggle(ActiveKey.Hiragana(key.number), KeyboardMappings.hiraganaRows[key.number] ?: return)
             }
-            KeyboardKey.Hash -> handleToggle(ActiveKey.Symbol, KeyboardMappings.symbolRow)
             else -> Unit
         }
     }
@@ -45,9 +43,6 @@ class HiraganaToggleProcessor(
             }
             KeyboardKey.Star -> MODE_LABEL
             KeyboardKey.Zero -> "0"
-            KeyboardKey.Hash -> {
-                if (activeKey is ActiveKey.Symbol) getSymbolToggleLabel() else "#\n、"
-            }
             else -> super.getKeyLabel(key)
         }
     }

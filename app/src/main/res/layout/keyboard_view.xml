@@ -35,134 +35,144 @@
 
     </HorizontalScrollView>
 
-    <GridLayout
-        android:id="@+id/keyboard_grid"
+    <ViewFlipper
+        android:id="@+id/keyboard_flipper"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:columnCount="4"
-        android:rowCount="5"
-        android:useDefaultMargins="true">
+        android:measureAllChildren="false">
 
-        <Button
-            android:id="@+id/key_1"
-            style="@style/KeyboardKey"
-            android:layout_column="0"
-            android:layout_row="0"
-            android:text="1" />
+        <GridLayout
+            android:id="@+id/keyboard_grid"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:columnCount="4"
+            android:rowCount="5"
+            android:useDefaultMargins="true">
 
-        <Button
-            android:id="@+id/key_2"
-            style="@style/KeyboardKey"
-            android:layout_column="1"
-            android:layout_row="0"
-            android:text="2" />
+            <Button
+                android:id="@+id/key_1"
+                style="@style/KeyboardKey"
+                android:layout_column="0"
+                android:layout_row="0"
+                android:text="1" />
 
-        <Button
-            android:id="@+id/key_3"
-            style="@style/KeyboardKey"
-            android:layout_column="2"
-            android:layout_row="0"
-            android:text="3" />
+            <Button
+                android:id="@+id/key_2"
+                style="@style/KeyboardKey"
+                android:layout_column="1"
+                android:layout_row="0"
+                android:text="2" />
 
-        <Button
-            android:id="@+id/key_delete"
-            style="@style/KeyboardFunctionKey"
-            android:layout_column="3"
-            android:layout_row="0"
-            android:text="@string/key_delete" />
+            <Button
+                android:id="@+id/key_3"
+                style="@style/KeyboardKey"
+                android:layout_column="2"
+                android:layout_row="0"
+                android:text="3" />
 
-        <Button
-            android:id="@+id/key_4"
-            style="@style/KeyboardKey"
-            android:layout_column="0"
-            android:layout_row="1"
-            android:text="4" />
+            <Button
+                android:id="@+id/key_delete"
+                style="@style/KeyboardFunctionKey"
+                android:layout_column="3"
+                android:layout_row="0"
+                android:text="@string/key_delete" />
 
-        <Button
-            android:id="@+id/key_5"
-            style="@style/KeyboardKey"
-            android:layout_column="1"
-            android:layout_row="1"
-            android:text="5" />
+            <Button
+                android:id="@+id/key_4"
+                style="@style/KeyboardKey"
+                android:layout_column="0"
+                android:layout_row="1"
+                android:text="4" />
 
-        <Button
-            android:id="@+id/key_6"
-            style="@style/KeyboardKey"
-            android:layout_column="2"
-            android:layout_row="1"
-            android:text="6" />
+            <Button
+                android:id="@+id/key_5"
+                style="@style/KeyboardKey"
+                android:layout_column="1"
+                android:layout_row="1"
+                android:text="5" />
 
-        <Button
-            android:id="@+id/key_cursor_left"
-            style="@style/KeyboardFunctionKey"
-            android:layout_column="3"
-            android:layout_row="1"
-            android:text="@string/key_cursor_left" />
+            <Button
+                android:id="@+id/key_6"
+                style="@style/KeyboardKey"
+                android:layout_column="2"
+                android:layout_row="1"
+                android:text="6" />
 
-        <Button
-            android:id="@+id/key_7"
-            style="@style/KeyboardKey"
-            android:layout_column="0"
-            android:layout_row="2"
-            android:text="7" />
+            <Button
+                android:id="@+id/key_cursor_left"
+                style="@style/KeyboardFunctionKey"
+                android:layout_column="3"
+                android:layout_row="1"
+                android:text="@string/key_cursor_left" />
 
-        <Button
-            android:id="@+id/key_8"
-            style="@style/KeyboardKey"
-            android:layout_column="1"
-            android:layout_row="2"
-            android:text="8" />
+            <Button
+                android:id="@+id/key_7"
+                style="@style/KeyboardKey"
+                android:layout_column="0"
+                android:layout_row="2"
+                android:text="7" />
 
-        <Button
-            android:id="@+id/key_9"
-            style="@style/KeyboardKey"
-            android:layout_column="2"
-            android:layout_row="2"
-            android:text="9" />
+            <Button
+                android:id="@+id/key_8"
+                style="@style/KeyboardKey"
+                android:layout_column="1"
+                android:layout_row="2"
+                android:text="8" />
 
-        <Button
-            android:id="@+id/key_cursor_right"
-            style="@style/KeyboardFunctionKey"
-            android:layout_column="3"
-            android:layout_row="2"
-            android:text="@string/key_cursor_right" />
+            <Button
+                android:id="@+id/key_9"
+                style="@style/KeyboardKey"
+                android:layout_column="2"
+                android:layout_row="2"
+                android:text="9" />
 
-        <Button
-            android:id="@+id/key_star"
-            style="@style/KeyboardKey"
-            android:layout_column="0"
-            android:layout_row="3"
-            android:text="*" />
+            <Button
+                android:id="@+id/key_cursor_right"
+                style="@style/KeyboardFunctionKey"
+                android:layout_column="3"
+                android:layout_row="2"
+                android:text="@string/key_cursor_right" />
 
-        <Button
-            android:id="@+id/key_0"
-            style="@style/KeyboardKey"
-            android:layout_column="1"
-            android:layout_row="3"
-            android:text="0" />
+            <Button
+                android:id="@+id/key_star"
+                style="@style/KeyboardKey"
+                android:layout_column="0"
+                android:layout_row="3"
+                android:text="*" />
 
-        <Button
-            android:id="@+id/key_hash"
-            style="@style/KeyboardKey"
-            android:layout_column="2"
-            android:layout_row="3"
-            android:text="#" />
+            <Button
+                android:id="@+id/key_0"
+                style="@style/KeyboardKey"
+                android:layout_column="1"
+                android:layout_row="3"
+                android:text="0" />
 
-        <Button
-            android:id="@+id/key_enter"
-            style="@style/KeyboardFunctionKey"
-            android:layout_column="3"
-            android:layout_row="3"
-            android:text="@string/key_enter" />
+            <Button
+                android:id="@+id/key_hash"
+                style="@style/KeyboardKey"
+                android:layout_column="2"
+                android:layout_row="3"
+                android:text="@string/key_symbols" />
 
-        <Button
-            android:id="@+id/key_space"
-            style="@style/KeyboardSpaceKey"
-            android:layout_column="0"
-            android:layout_columnSpan="4"
-            android:layout_row="4"
-            android:text="@string/key_space" />
+            <Button
+                android:id="@+id/key_enter"
+                style="@style/KeyboardFunctionKey"
+                android:layout_column="3"
+                android:layout_row="3"
+                android:text="@string/key_enter" />
 
-    </GridLayout>
+            <Button
+                android:id="@+id/key_space"
+                style="@style/KeyboardSpaceKey"
+                android:layout_column="0"
+                android:layout_columnSpan="4"
+                android:layout_row="4"
+                android:text="@string/key_space" />
+
+        </GridLayout>
+
+        <include layout="@layout/keyboard_symbol_view" />
+
+    </ViewFlipper>
 
 </LinearLayout>
