@@ -5,18 +5,33 @@ import android.util.Log
 import com.example.mozcengine.ConversionEngine
 import com.example.mozcengine.ConversionMode
 import com.example.mozcengine.MozcConversionEngine
+import com.example.mozcengine.MozcSession
+import com.example.twotouchkeyboard.english.EnglishDictionaryConversionEngine
+import com.example.twotouchkeyboard.english.RoutingConversionEngine
 import kotlinx.coroutines.delay
 
 object ConversionEngineProvider {
     private const val TAG = "ConversionEngineProvider"
 
     fun create(context: Context): ConversionEngine {
-        MozcConversionEngine.tryCreate(context)?.let { engine ->
-            Log.i(TAG, "Using Mozc conversion engine")
-            return engine
+        val englishEngine = EnglishDictionaryConversionEngine(context)
+        val japaneseEngine = MozcConversionEngine.tryCreate(context)?.let { engine ->
+            if (MozcSession.hasDictionaryData(context.applicationContext)) {
+                Log.i(
+                    TAG,
+                    "Using Mozc conversion engine (dataVersion=${MozcSession.getDataVersion()})",
+                )
+                engine
+            } else {
+                Log.w(TAG, "Mozc dictionary unavailable; falling back to dummy conversion engine")
+                engine.close()
+                DummyConversionEngine()
+            }
+        } ?: run {
+            Log.i(TAG, "Falling back to dummy conversion engine")
+            DummyConversionEngine()
         }
-        Log.i(TAG, "Falling back to dummy conversion engine")
-        return DummyConversionEngine()
+        return RoutingConversionEngine(japaneseEngine, englishEngine)
     }
 }
 
@@ -37,12 +52,14 @@ class DummyConversionEngine : ConversionEngine {
         if (input.isEmpty()) return emptyList()
         return when (mode) {
             ConversionMode.HIRAGANA -> lookupHiraganaCandidates(input)
-            ConversionMode.ALPHABET -> lookupAlphabetCandidates(input)
+            ConversionMode.ALPHABET -> emptyList()
             ConversionMode.NUMBER -> listOf(input)
         }
     }
 
     override fun close() = Unit
+
+    override fun resetSession() = Unit
 
     private fun lookupHiraganaCandidates(input: String): List<String> {
         CANDIDATE_MAP[input]?.let { return it }
@@ -53,12 +70,6 @@ class DummyConversionEngine : ConversionEngine {
             "${input}語",
         )
         return fallback.distinct()
-    }
-
-    private fun lookupAlphabetCandidates(input: String): List<String> {
-        val upper = input.uppercase()
-        val lower = input.lowercase()
-        return listOf(lower, upper, "${lower}ing", "${lower}s").distinct()
     }
 
     private fun toFakeKanji(input: String): String {

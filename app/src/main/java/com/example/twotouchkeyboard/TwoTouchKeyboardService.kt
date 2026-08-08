@@ -16,6 +16,7 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
 import androidx.lifecycle.lifecycleScope
 import com.example.mozcengine.ConversionEngine
+import com.example.mozcengine.AlphabetPredictionSupport
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -182,7 +183,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
 
     private fun canHandleConversionKey(key: KeyboardKey): Boolean {
         if (!coordinator.isConversionEnabled()) return false
-        if (coordinator.getInputMode() != InputMode.HIRAGANA) return false
+        if (!isPredictionConversionMode()) return false
         if (coordinator.getComposingText().isEmpty()) return false
         if (coordinator.isMidCharacterInput()) return false
 
@@ -233,17 +234,17 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     }
 
     private fun handleSpaceKey() {
-        if (coordinator.isConversionEnabled() &&
-            coordinator.getInputMode() == InputMode.HIRAGANA &&
-            coordinator.getComposingText().isNotEmpty() &&
-            !coordinator.isMidCharacterInput()
-        ) {
+        if (canStartPredictionConversion()) {
             if (conversionSession.isActive) {
                 conversionSession.getSelectedCandidate()?.let { applyPartialConversion(it) }
                 return
             }
-            enterConversionMode()
-            return
+            if (coordinator.getInputMode() == InputMode.HIRAGANA ||
+                conversionSession.getCandidates().isNotEmpty()
+            ) {
+                enterConversionMode()
+                return
+            }
         }
         coordinator.onSpace()
     }
@@ -267,15 +268,25 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     }
 
     private fun handleCursorKey(direction: Int) {
-        if (coordinator.isConversionEnabled() &&
-            coordinator.getInputMode() == InputMode.HIRAGANA &&
-            coordinator.getComposingText().isNotEmpty() &&
-            !coordinator.isMidCharacterInput()
-        ) {
+        if (canStartPredictionConversion()) {
             adjustConversionBoundary(direction)
             return
         }
         coordinator.onCursorMove(direction)
+    }
+
+    private fun isPredictionConversionMode(): Boolean {
+        return when (coordinator.getInputMode()) {
+            InputMode.HIRAGANA, InputMode.ALPHABET -> true
+            InputMode.NUMBER -> false
+        }
+    }
+
+    private fun canStartPredictionConversion(): Boolean {
+        return coordinator.isConversionEnabled() &&
+            isPredictionConversionMode() &&
+            coordinator.getComposingText().isNotEmpty() &&
+            !coordinator.isMidCharacterInput()
     }
 
     private fun enterConversionMode() {
@@ -320,10 +331,23 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
 
         val target = conversionSession.getConversionTarget(composing)
         val suffix = conversionSession.getRemainingSuffix(composing)
-        conversionHint.text = if (suffix.isEmpty()) {
-            getString(R.string.conversion_hint_full, target)
+        val hintTemplate = if (coordinator.getInputMode() == InputMode.ALPHABET) {
+            if (suffix.isEmpty()) {
+                R.string.prediction_hint_full
+            } else {
+                R.string.prediction_hint_partial
+            }
         } else {
-            getString(R.string.conversion_hint_partial, target, suffix)
+            if (suffix.isEmpty()) {
+                R.string.conversion_hint_full
+            } else {
+                R.string.conversion_hint_partial
+            }
+        }
+        conversionHint.text = if (suffix.isEmpty()) {
+            getString(hintTemplate, target)
+        } else {
+            getString(hintTemplate, target, suffix)
         }
         conversionHint.isVisible = true
     }
@@ -374,17 +398,32 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
 
         val target = resolveConversionTarget(composing)
         val requestComposing = composing
+        val lookupTarget = if (coordinator.getInputMode() == InputMode.ALPHABET) {
+            AlphabetPredictionSupport.lookupInput(target)
+        } else {
+            target
+        }
 
         conversionJob = conversionScope.launch {
-            val candidates = withContext(Dispatchers.Default) {
-                conversionEngine.convert(target, coordinator.getInputMode().toConversionMode())
+            val rawCandidates = withContext(Dispatchers.Default) {
+                conversionEngine.convert(lookupTarget, coordinator.getInputMode().toConversionMode())
             }
             if (requestComposing != coordinator.getComposingText()) return@launch
 
+            val candidates = if (coordinator.getInputMode() == InputMode.ALPHABET) {
+                AlphabetPredictionSupport.prepareEnglishCandidates(rawCandidates, target)
+            } else {
+                rawCandidates
+            }
             conversionSession.setCandidates(candidates)
             if (pendingConversionActivation && candidates.isNotEmpty()) {
                 conversionSession.activate(requestComposing.length)
                 pendingConversionActivation = false
+            } else if (
+                coordinator.getInputMode() == InputMode.ALPHABET &&
+                AlphabetPredictionSupport.hasPredictiveCandidates(candidates, requestComposing)
+            ) {
+                conversionSession.activate(requestComposing.length)
             }
             refreshConversionUi()
         }
@@ -456,6 +495,9 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
 
     private fun resetConversionState() {
         conversionJob?.cancel()
+        if (::conversionEngine.isInitialized) {
+            conversionEngine.resetSession()
+        }
         conversionSession.clear()
         pendingConversionActivation = false
         lastComposingTextForConversion = ""

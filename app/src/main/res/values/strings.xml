@@ -15,4 +15,6 @@
     <string name="key_cursor_right">→</string>
     <string name="conversion_hint_full">変換: %1$s</string>
     <string name="conversion_hint_partial">変換: %1$s（確定後に %2$s を変換）</string>
+    <string name="prediction_hint_full">予測: %1$s</string>
+    <string name="prediction_hint_partial">予測: %1$s（確定後に %2$s を予測）</string>
 </resources>

@@ -19,12 +19,20 @@ class MozcConversionEngine private constructor(
     private val mutex = Mutex()
 
     override suspend fun convert(input: String, mode: ConversionMode): List<String> {
-        if (input.isEmpty()) return emptyList()
         return mutex.withLock {
             withContext(Dispatchers.Default) {
-                session.convert(input, mode)
+                if (input.isEmpty()) {
+                    session.resetSession()
+                    emptyList()
+                } else {
+                    session.convert(input, mode)
+                }
             }
         }
+    }
+
+    override fun resetSession() {
+        session.resetSession()
     }
 
     override fun close() {

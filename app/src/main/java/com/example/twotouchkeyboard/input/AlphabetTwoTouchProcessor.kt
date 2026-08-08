@@ -68,11 +68,10 @@ class AlphabetTwoTouchProcessor(
     private fun handleWaitingVowel(key: KeyboardKey) {
         when (key) {
             is KeyboardKey.Digit -> {
-                if (key.number !in 1..5) return
                 val row = activeRow ?: return
                 val chars = KeyboardMappings.alphabetRows[row] ?: return
+                if (key.number !in 1..chars.length) return
                 val index = key.number - 1
-                if (index >= chars.length) return
                 host.appendConfirmedCharacter(chars[index].toString())
                 state = State.IDLE
                 activeRow = null

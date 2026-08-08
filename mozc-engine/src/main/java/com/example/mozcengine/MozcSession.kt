@@ -12,23 +12,64 @@ import org.mozc.android.inputmethod.japanese.protobuf.ProtoCommands.KeyEvent
 import org.mozc.android.inputmethod.japanese.protobuf.ProtoCommands.Output
 import org.mozc.android.inputmethod.japanese.protobuf.ProtoCommands.Request
 import org.mozc.android.inputmethod.japanese.protobuf.ProtoCommands.SessionCommand
-import java.io.File
 
 /**
- * Minimal Mozc session wrapper for candidate lookup.
+ * Mozc session wrapper with incremental composition updates.
  *
- * Sends pre-composed hiragana/alphabet strings via TEXT_INPUT and reads candidates
- * from [Output.allCandidateWords].
+ * Uses [SessionCommand.CommandType.UPDATE_COMPOSITION] to replace the current
+ * composition without resetting context on every keystroke, which allows Mozc
+ * prediction/conversion to work for both Japanese and English input.
  */
 class MozcSession private constructor(
     private var sessionId: Long,
 ) {
-    fun convert(input: String, mode: ConversionMode): List<String> {
-        if (input.isEmpty()) return emptyList()
+    private var lastMozcInput: String = ""
+    private var lastMode: ConversionMode? = null
 
+    fun convert(input: String, mode: ConversionMode): List<String> {
+        if (input.isEmpty()) {
+            resetSession()
+            return emptyList()
+        }
+
+        val mozcInput = normalizeInput(input, mode)
+        ensureMode(mode)
+
+        val output = when {
+            mozcInput == lastMozcInput && mode == lastMode -> {
+                updateComposition(mozcInput)
+            }
+            lastMozcInput.isNotEmpty() &&
+                mozcInput.startsWith(lastMozcInput) &&
+                mode == lastMode -> {
+                appendText(mozcInput.substring(lastMozcInput.length), mode)
+            }
+            lastMozcInput.isNotEmpty() &&
+                lastMozcInput.startsWith(mozcInput) &&
+                mode == lastMode -> {
+                deleteText(lastMozcInput.length - mozcInput.length)
+                if (mozcInput.isEmpty()) {
+                    resetSession()
+                    return emptyList()
+                }
+                updateComposition(mozcInput)
+            }
+            else -> {
+                resetContext()
+                switchCompositionMode(mode)
+                updateComposition(mozcInput)
+            }
+        }
+
+        lastMozcInput = mozcInput
+        lastMode = mode
+        return extractCandidates(output, input, mode)
+    }
+
+    fun resetSession() {
         resetContext()
-        val output = sendKey(buildTextInputKey(input, mode))
-        return extractCandidates(output, input)
+        lastMozcInput = ""
+        lastMode = null
     }
 
     fun deleteSession() {
@@ -40,6 +81,25 @@ class MozcSession private constructor(
                 .build(),
         )
         sessionId = INVALID_SESSION_ID
+        lastMozcInput = ""
+        lastMode = null
+    }
+
+    private fun ensureMode(mode: ConversionMode) {
+        if (lastMode == mode) return
+        if (lastMode != null) {
+            resetContext()
+        }
+        switchCompositionMode(mode)
+        lastMozcInput = ""
+        lastMode = mode
+    }
+
+    private fun normalizeInput(input: String, mode: ConversionMode): String {
+        return when (mode) {
+            ConversionMode.ALPHABET -> AlphabetPredictionSupport.lookupInput(input)
+            else -> input
+        }
     }
 
     private fun resetContext() {
@@ -55,6 +115,75 @@ class MozcSession private constructor(
         )
     }
 
+    private fun switchCompositionMode(mode: ConversionMode) {
+        evaluate(
+            Input.newBuilder()
+                .setId(sessionId)
+                .setType(Input.CommandType.SEND_COMMAND)
+                .setCommand(
+                    SessionCommand.newBuilder()
+                        .setType(SessionCommand.CommandType.SWITCH_COMPOSITION_MODE)
+                        .setCompositionMode(toCompositionMode(mode)),
+                )
+                .build(),
+        )
+    }
+
+    private fun updateComposition(text: String): Output {
+        return evaluate(
+            Input.newBuilder()
+                .setId(sessionId)
+                .setType(Input.CommandType.SEND_COMMAND)
+                .setCommand(
+                    SessionCommand.newBuilder()
+                        .setType(SessionCommand.CommandType.UPDATE_COMPOSITION)
+                        .addCompositionEvents(
+                            SessionCommand.CompositionEvent.newBuilder()
+                                .setCompositionString(text)
+                                .setProbability(1.0),
+                        ),
+                )
+                .build(),
+        ).output
+    }
+
+    private fun appendText(text: String, mode: ConversionMode): Output {
+        if (text.isEmpty()) {
+            return evaluate(
+                Input.newBuilder()
+                    .setId(sessionId)
+                    .setType(Input.CommandType.SEND_COMMAND)
+                    .setCommand(
+                        SessionCommand.newBuilder()
+                            .setType(SessionCommand.CommandType.GET_STATUS),
+                    )
+                    .build(),
+            ).output
+        }
+        return sendKey(buildTextInputKey(text, mode))
+    }
+
+    private fun deleteText(count: Int): Output {
+        var output = evaluate(
+            Input.newBuilder()
+                .setId(sessionId)
+                .setType(Input.CommandType.SEND_COMMAND)
+                .setCommand(
+                    SessionCommand.newBuilder()
+                        .setType(SessionCommand.CommandType.GET_STATUS),
+                )
+                .build(),
+        ).output
+        repeat(count.coerceAtLeast(0)) {
+            output = sendKey(
+                KeyEvent.newBuilder()
+                    .setSpecialKey(KeyEvent.SpecialKey.BACKSPACE)
+                    .build(),
+            )
+        }
+        return output
+    }
+
     private fun sendKey(key: KeyEvent): Output {
         return evaluate(
             Input.newBuilder()
@@ -66,17 +195,21 @@ class MozcSession private constructor(
     }
 
     private fun buildTextInputKey(input: String, mode: ConversionMode): KeyEvent {
-        val builder = KeyEvent.newBuilder()
+        return KeyEvent.newBuilder()
             .setSpecialKey(KeyEvent.SpecialKey.TEXT_INPUT)
             .setKeyString(input)
             .setInputStyle(KeyEvent.InputStyle.AS_IS)
+            .setActivated(true)
+            .setMode(toCompositionMode(mode))
+            .build()
+    }
 
-        when (mode) {
-            ConversionMode.HIRAGANA -> builder.mode = CompositionMode.HIRAGANA
-            ConversionMode.ALPHABET -> builder.mode = CompositionMode.HALF_ASCII
-            ConversionMode.NUMBER -> builder.mode = CompositionMode.DIRECT
+    private fun toCompositionMode(mode: ConversionMode): CompositionMode {
+        return when (mode) {
+            ConversionMode.HIRAGANA -> CompositionMode.HIRAGANA
+            ConversionMode.ALPHABET -> CompositionMode.HALF_ASCII
+            ConversionMode.NUMBER -> CompositionMode.DIRECT
         }
-        return builder.build()
     }
 
     private fun evaluate(input: Input): Command {
@@ -119,11 +252,24 @@ class MozcSession private constructor(
             return MozcSession(sessionId)
         }
 
+        fun hasDictionaryData(context: Context): Boolean {
+            ensureMozcLoaded(context)
+            return getDataVersion().isNotEmpty()
+        }
+
+        fun getDataVersion(): String {
+            return if (MozcJNI.isLoaded()) {
+                MozcJNI.getDataVersion().orEmpty()
+            } else {
+                ""
+            }
+        }
+
         private fun ensureMozcLoaded(context: Context) {
             if (MozcJNI.isLoaded()) return
 
             val filesDir = context.filesDir
-            val profileDir = File(filesDir, "mozc_profile").apply { mkdirs() }
+            val profileDir = java.io.File(filesDir, "mozc_profile").apply { mkdirs() }
             val dataFile = resolveDataFile(context, filesDir)
 
             MozcJNI.load(
@@ -133,13 +279,13 @@ class MozcSession private constructor(
             Log.i(TAG, "Mozc loaded. dataVersion=${MozcJNI.getDataVersion()}")
         }
 
-        private fun resolveDataFile(context: Context, filesDir: File): File? {
+        private fun resolveDataFile(context: Context, filesDir: java.io.File): java.io.File? {
             cachedDataFilePath?.let { path ->
-                val cached = File(path)
+                val cached = java.io.File(path)
                 if (cached.isFile) return cached
             }
 
-            val extracted = File(filesDir, MOZC_DATA_ASSET)
+            val extracted = java.io.File(filesDir, MOZC_DATA_ASSET)
             if (extracted.isFile) {
                 cachedDataFilePath = extracted.absolutePath
                 return extracted
@@ -176,8 +322,12 @@ class MozcSession private constructor(
             return Command.parseFrom(responseBytes)
         }
 
-        private fun extractCandidates(output: Output, fallbackInput: String): List<String> {
-            val candidates = mutableListOf<String>()
+        private fun extractCandidates(
+            output: Output,
+            fallbackInput: String,
+            mode: ConversionMode,
+        ): List<String> {
+            val candidates = linkedSetOf<String>()
 
             if (output.hasAllCandidateWords()) {
                 output.allCandidateWords.candidatesList.forEach { word ->
@@ -188,7 +338,7 @@ class MozcSession private constructor(
                 }
             }
 
-            if (candidates.isEmpty() && output.hasCandidateWindow()) {
+            if (output.hasCandidateWindow()) {
                 output.candidateWindow.candidateList.forEach { candidate ->
                     val value = candidate.value
                     if (value.isNotEmpty()) {
@@ -200,15 +350,27 @@ class MozcSession private constructor(
             if (candidates.isEmpty() && output.hasPreedit()) {
                 val preedit = output.preedit.segmentList.joinToString("") { it.value }
                 if (preedit.isNotEmpty()) {
-                    candidates.add(preedit)
+                    val includePreedit = mode != ConversionMode.ALPHABET ||
+                        AlphabetPredictionSupport.isEnglishWordCandidate(preedit)
+                    if (includePreedit) {
+                        candidates.add(preedit)
+                    }
                 }
             }
 
-            if (candidates.isEmpty()) {
-                candidates.add(fallbackInput)
+            return when (mode) {
+                ConversionMode.ALPHABET -> AlphabetPredictionSupport.prepareEnglishCandidates(
+                    candidates.toList(),
+                    fallbackInput,
+                )
+                else -> {
+                    if (candidates.isEmpty()) {
+                        listOf(fallbackInput)
+                    } else {
+                        candidates.toList()
+                    }
+                }
             }
-
-            return candidates.distinct()
         }
     }
 }
