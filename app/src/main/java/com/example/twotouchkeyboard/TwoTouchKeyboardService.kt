@@ -400,11 +400,16 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         val requestComposing = composing
 
         conversionJob = conversionScope.launch {
-            val candidates = withContext(Dispatchers.Default) {
+            val rawCandidates = withContext(Dispatchers.Default) {
                 conversionEngine.convert(target, coordinator.getInputMode().toConversionMode())
             }
             if (requestComposing != coordinator.getComposingText()) return@launch
 
+            val candidates = if (coordinator.getInputMode() == InputMode.ALPHABET) {
+                AlphabetPredictionSupport.prepareEnglishCandidates(rawCandidates, target)
+            } else {
+                rawCandidates
+            }
             conversionSession.setCandidates(candidates)
             if (pendingConversionActivation && candidates.isNotEmpty()) {
                 conversionSession.activate(requestComposing.length)

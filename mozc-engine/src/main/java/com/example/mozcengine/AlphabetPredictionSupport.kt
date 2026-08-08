@@ -5,6 +5,29 @@ package com.example.mozcengine
  */
 object AlphabetPredictionSupport {
 
+    fun isEnglishWordCandidate(candidate: String): Boolean {
+        if (candidate.isEmpty()) return false
+        return candidate.all { isEnglishCandidateChar(it) }
+    }
+
+    fun filterEnglishCandidates(candidates: List<String>, input: String): List<String> {
+        if (input.isEmpty()) return emptyList()
+
+        val lowerInput = input.lowercase()
+        return candidates.filter { candidate ->
+            isEnglishWordCandidate(candidate) &&
+                candidate.lowercase().startsWith(lowerInput)
+        }
+    }
+
+    fun prepareEnglishCandidates(candidates: List<String>, input: String): List<String> {
+        val englishCandidates = filterEnglishCandidates(candidates, input)
+        if (englishCandidates.isNotEmpty()) {
+            return rankCandidates(englishCandidates, input)
+        }
+        return if (isEnglishWordCandidate(input)) listOf(input) else emptyList()
+    }
+
     fun rankCandidates(candidates: List<String>, input: String): List<String> {
         if (input.isEmpty()) return candidates
 
@@ -27,8 +50,18 @@ object AlphabetPredictionSupport {
         if (input.isEmpty() || candidates.isEmpty()) return false
         val lowerInput = input.lowercase()
         return candidates.any { candidate ->
-            val lowerCandidate = candidate.lowercase()
-            lowerCandidate.startsWith(lowerInput) && lowerCandidate.length > lowerInput.length
+            isEnglishWordCandidate(candidate) &&
+                candidate.lowercase().startsWith(lowerInput) &&
+                candidate.length > input.length
         }
+    }
+
+    private fun isEnglishCandidateChar(char: Char): Boolean {
+        return char in 'a'..'z' ||
+            char in 'A'..'Z' ||
+            char in '0'..'9' ||
+            char == '\'' ||
+            char == '-' ||
+            char == '.'
     }
 }

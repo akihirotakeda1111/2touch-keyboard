@@ -28,10 +28,30 @@ class AlphabetPredictionSupportTest {
     }
 
     @Test
-    fun hasPredictiveCandidates_returnsFalse_whenOnlyExactMatchExists() {
+    fun filterEnglishCandidates_removesJapaneseCandidates() {
+        val filtered = AlphabetPredictionSupport.filterEnglishCandidates(
+            candidates = listOf("hello", "こんにちは", "help", "変換"),
+            input = "he",
+        )
+
+        assertEquals(listOf("hello", "help"), filtered)
+    }
+
+    @Test
+    fun prepareEnglishCandidates_returnsInput_whenOnlyJapaneseCandidatesExist() {
+        val prepared = AlphabetPredictionSupport.prepareEnglishCandidates(
+            candidates = listOf("こんにちは", "変換"),
+            input = "hel",
+        )
+
+        assertEquals(listOf("hel"), prepared)
+    }
+
+    @Test
+    fun hasPredictiveCandidates_returnsFalse_forJapaneseCandidates() {
         assertFalse(
             AlphabetPredictionSupport.hasPredictiveCandidates(
-                candidates = listOf("hel"),
+                candidates = listOf("こんにちは", "変換"),
                 input = "hel",
             ),
         )

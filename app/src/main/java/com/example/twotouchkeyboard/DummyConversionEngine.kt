@@ -70,7 +70,7 @@ class DummyConversionEngine : ConversionEngine {
             .take(9)
             .toList()
 
-        return AlphabetPredictionSupport.rankCandidates(predictions + input, input)
+        return AlphabetPredictionSupport.prepareEnglishCandidates(predictions + input, input)
     }
 
     private fun toFakeKanji(input: String): String {

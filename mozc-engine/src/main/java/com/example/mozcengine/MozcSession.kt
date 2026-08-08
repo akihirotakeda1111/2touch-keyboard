@@ -27,8 +27,28 @@ class MozcSession private constructor(
         if (input.isEmpty()) return emptyList()
 
         resetContext()
+        switchCompositionMode(mode)
         val output = sendKey(buildTextInputKey(input, mode))
         return extractCandidates(output, input, mode)
+    }
+
+    private fun switchCompositionMode(mode: ConversionMode) {
+        val compositionMode = when (mode) {
+            ConversionMode.HIRAGANA -> CompositionMode.HIRAGANA
+            ConversionMode.ALPHABET -> CompositionMode.HALF_ASCII
+            ConversionMode.NUMBER -> CompositionMode.DIRECT
+        }
+        evaluate(
+            Input.newBuilder()
+                .setId(sessionId)
+                .setType(Input.CommandType.SEND_COMMAND)
+                .setCommand(
+                    SessionCommand.newBuilder()
+                        .setType(SessionCommand.CommandType.SWITCH_COMPOSITION_MODE)
+                        .setCompositionMode(compositionMode),
+                )
+                .build(),
+        )
     }
 
     fun deleteSession() {
@@ -204,18 +224,25 @@ class MozcSession private constructor(
             if (candidates.isEmpty() && output.hasPreedit()) {
                 val preedit = output.preedit.segmentList.joinToString("") { it.value }
                 if (preedit.isNotEmpty()) {
-                    candidates.add(preedit)
+                    val includePreedit = mode != ConversionMode.ALPHABET ||
+                        AlphabetPredictionSupport.isEnglishWordCandidate(preedit)
+                    if (includePreedit) {
+                        candidates.add(preedit)
+                    }
                 }
             }
 
-            if (candidates.isEmpty()) {
-                candidates.add(fallbackInput)
-            }
-
-            val distinct = candidates.distinct()
             return when (mode) {
-                ConversionMode.ALPHABET -> AlphabetPredictionSupport.rankCandidates(distinct, fallbackInput)
-                else -> distinct
+                ConversionMode.ALPHABET -> AlphabetPredictionSupport.prepareEnglishCandidates(
+                    candidates.distinct(),
+                    fallbackInput,
+                )
+                else -> {
+                    if (candidates.isEmpty()) {
+                        candidates.add(fallbackInput)
+                    }
+                    candidates.distinct()
+                }
             }
         }
     }
