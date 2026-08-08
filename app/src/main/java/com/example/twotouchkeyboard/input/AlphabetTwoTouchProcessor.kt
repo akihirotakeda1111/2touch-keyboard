@@ -5,7 +5,7 @@ import com.example.twotouchkeyboard.KeyboardMappings
 
 class AlphabetTwoTouchProcessor(
     host: InputProcessorHost,
-) : BaseInputProcessor(host), UppercaseToggleSupport {
+) : BaseInputProcessor(host), AlphabetCaseModifierSupport {
 
     enum class State { IDLE, WAITING_VOWEL }
 
@@ -13,7 +13,6 @@ class AlphabetTwoTouchProcessor(
         private set
 
     private var activeRow: Int? = null
-    private var uppercasePreferred: Boolean = false
 
     override fun onKeyPressed(key: KeyboardKey) {
         when (state) {
@@ -38,12 +37,10 @@ class AlphabetTwoTouchProcessor(
         }
     }
 
-    override fun toggleUppercase() {
-        uppercasePreferred = !uppercasePreferred
-        host.onProcessorStateChanged()
+    override fun toggleLastCharacterCase() {
+        val last = host.getConfirmedBuffer().lastOrNull()?.takeIf { it.isLetter() } ?: return
+        host.replaceLastConfirmedCharacter(toggleCase(last))
     }
-
-    override fun isUppercasePreferred(): Boolean = uppercasePreferred
 
     override fun hasPartialTwoTouchInput(): Boolean = state == State.WAITING_VOWEL
 
@@ -58,7 +55,6 @@ class AlphabetTwoTouchProcessor(
         super.resetInputSession()
         state = State.IDLE
         activeRow = null
-        uppercasePreferred = false
         host.onProcessorStateChanged()
     }
 
@@ -91,13 +87,11 @@ class AlphabetTwoTouchProcessor(
     }
 
     private fun selectableCharacters(row: Int): String? {
-        val chars = KeyboardMappings.alphabetRows[row] ?: return null
-        if (!uppercasePreferred) return chars
-        return buildString {
-            chars.forEach { char ->
-                append(if (char.isLowerCase()) char.uppercaseChar() else char)
-            }
-        }
+        return KeyboardMappings.alphabetRows[row]
+    }
+
+    private fun toggleCase(char: Char): Char {
+        return if (char.isLowerCase()) char.uppercaseChar() else char.lowercaseChar()
     }
 
     companion object {

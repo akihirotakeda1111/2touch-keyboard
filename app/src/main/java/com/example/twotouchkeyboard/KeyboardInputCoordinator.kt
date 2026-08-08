@@ -7,8 +7,8 @@ import com.example.twotouchkeyboard.input.HiraganaToggleProcessor
 import com.example.twotouchkeyboard.input.HiraganaTwoTouchProcessor
 import com.example.twotouchkeyboard.input.InputProcessor
 import com.example.twotouchkeyboard.input.InputProcessorHost
+import com.example.twotouchkeyboard.input.AlphabetCaseModifierSupport
 import com.example.twotouchkeyboard.input.NumberInputProcessor
-import com.example.twotouchkeyboard.input.UppercaseToggleSupport
 import android.view.inputmethod.EditorInfo
 
 /**
@@ -44,14 +44,6 @@ class KeyboardInputCoordinator(
     private var hiraganaInputMethod: CharacterInputMethod = CharacterInputMethod.TWOTOUCH
     private var alphabetInputMethod: CharacterInputMethod = CharacterInputMethod.TOGGLE
 
-    private enum class TextModifierKind {
-        DAKUTEN,
-        HANDAKUTEN,
-        SMALL_KANA,
-    }
-
-    private var textModifierKind: TextModifierKind = TextModifierKind.DAKUTEN
-
     fun bindInputConnection(ic: InputConnection?) {
         inputConnection = ic
     }
@@ -78,7 +70,6 @@ class KeyboardInputCoordinator(
         activeProcessor().resetPartialInput()
         if (currentInputMode != fieldProfile.preferredMode) {
             currentInputMode = fieldProfile.preferredMode
-            resetTextModifierKind()
             listener.onInputModeChanged(currentInputMode)
         }
         listener.onStateChanged()
@@ -165,13 +156,9 @@ class KeyboardInputCoordinator(
 
     fun applyTextModifier() {
         when (currentInputMode) {
-            InputMode.HIRAGANA -> {
-                applyKanaModifier(textModifierKind)
-                textModifierKind = textModifierKind.next()
-                listener.onStateChanged()
-            }
+            InputMode.HIRAGANA -> applyKanaCycleModifier()
             InputMode.ALPHABET -> {
-                toggleUppercase()
+                (activeProcessor() as? AlphabetCaseModifierSupport)?.toggleLastCharacterCase()
             }
             InputMode.NUMBER -> Unit
         }
@@ -179,15 +166,13 @@ class KeyboardInputCoordinator(
 
     fun getTextModifierLabel(): String {
         return when (currentInputMode) {
-            InputMode.HIRAGANA -> textModifierKind.label()
-            InputMode.ALPHABET -> {
-                if (isUppercasePreferred()) "大●" else "大"
-            }
+            InputMode.HIRAGANA -> "゛゜小"
+            InputMode.ALPHABET -> "A/a"
             InputMode.NUMBER -> "─"
         }
     }
 
-    private fun applyKanaModifier(kind: TextModifierKind) {
+    private fun applyKanaCycleModifier() {
         if (currentInputMode != InputMode.HIRAGANA || fieldProfile.passthroughEnabled) return
 
         activeProcessor().confirmPendingInput()
@@ -195,45 +180,11 @@ class KeyboardInputCoordinator(
         if (confirmedBuffer.isEmpty()) return
 
         val lastIndex = confirmedBuffer.lastIndex
-        val transformed = when (kind) {
-            TextModifierKind.DAKUTEN -> KanaModifier.applyDakuten(confirmedBuffer[lastIndex])
-            TextModifierKind.HANDAKUTEN -> KanaModifier.applyHandakuten(confirmedBuffer[lastIndex])
-            TextModifierKind.SMALL_KANA -> KanaModifier.applySmallKana(confirmedBuffer[lastIndex])
-        } ?: return
+        val transformed = KanaModifier.cycle(confirmedBuffer[lastIndex]) ?: return
 
         confirmedBuffer[lastIndex] = transformed
         currentPreview = confirmedBuffer.toString()
         listener.onComposingTextUpdated(currentPreview)
-    }
-
-    private fun toggleUppercase() {
-        if (currentInputMode != InputMode.ALPHABET) return
-        (activeProcessor() as? UppercaseToggleSupport)?.toggleUppercase()
-        listener.onStateChanged()
-    }
-
-    private fun isUppercasePreferred(): Boolean {
-        return (activeProcessor() as? UppercaseToggleSupport)?.isUppercasePreferred() == true
-    }
-
-    private fun resetTextModifierKind() {
-        textModifierKind = TextModifierKind.DAKUTEN
-    }
-
-    private fun TextModifierKind.next(): TextModifierKind {
-        return when (this) {
-            TextModifierKind.DAKUTEN -> TextModifierKind.HANDAKUTEN
-            TextModifierKind.HANDAKUTEN -> TextModifierKind.SMALL_KANA
-            TextModifierKind.SMALL_KANA -> TextModifierKind.DAKUTEN
-        }
-    }
-
-    private fun TextModifierKind.label(): String {
-        return when (this) {
-            TextModifierKind.DAKUTEN -> "濁点"
-            TextModifierKind.HANDAKUTEN -> "半濁"
-            TextModifierKind.SMALL_KANA -> "小"
-        }
     }
 
     fun confirmAllPendingInput() {
@@ -248,7 +199,6 @@ class KeyboardInputCoordinator(
             InputMode.ALPHABET -> InputMode.NUMBER
             InputMode.NUMBER -> InputMode.HIRAGANA
         }
-        resetTextModifierKind()
         listener.onInputModeChanged(currentInputMode)
         listener.onStateChanged()
         return currentInputMode
@@ -316,6 +266,14 @@ class KeyboardInputCoordinator(
     }
 
     override fun getComposingPreview(): String = currentPreview
+
+    override fun replaceLastConfirmedCharacter(newChar: Char) {
+        if (fieldProfile.passthroughEnabled) return
+        if (confirmedBuffer.isEmpty()) return
+        confirmedBuffer[confirmedBuffer.lastIndex] = newChar
+        currentPreview = confirmedBuffer.toString()
+        listener.onComposingTextUpdated(currentPreview)
+    }
 
     override fun deleteLastConfirmedCharacter() {
         if (fieldProfile.passthroughEnabled) {

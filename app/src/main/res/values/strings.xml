@@ -13,10 +13,8 @@
     <string name="key_symbols">記号</string>
     <string name="key_symbol_close">閉じる</string>
     <string name="key_mode_switch">切替</string>
-    <string name="key_dakuten">濁点</string>
-    <string name="key_handakuten">半濁</string>
-    <string name="key_small_kana">小</string>
-    <string name="key_uppercase_toggle">大</string>
+    <string name="key_text_modifier_kana">゛゜小</string>
+    <string name="key_text_modifier_alphabet">A/a</string>
     <string name="key_enter">↵</string>
     <string name="key_space">Space</string>
     <string name="key_cursor_left">←</string>

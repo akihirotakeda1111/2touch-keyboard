@@ -168,7 +168,7 @@
                 style="@style/KeyboardKey"
                 android:layout_column="1"
                 android:layout_row="4"
-                android:text="@string/key_dakuten" />
+                android:text="@string/key_text_modifier_kana" />
 
             <Button
                 android:id="@+id/key_space"

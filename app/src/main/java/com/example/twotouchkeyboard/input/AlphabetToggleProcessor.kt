@@ -5,11 +5,10 @@ import com.example.twotouchkeyboard.KeyboardMappings
 
 class AlphabetToggleProcessor(
     host: InputProcessorHost,
-) : BaseInputProcessor(host), UppercaseToggleSupport {
+) : BaseInputProcessor(host), AlphabetCaseModifierSupport {
 
     private var activeRow: Int? = null
     private var activeIndex: Int = 0
-    private var uppercasePreferred: Boolean = false
 
     override fun onKeyPressed(key: KeyboardKey) {
         when (key) {
@@ -54,18 +53,18 @@ class AlphabetToggleProcessor(
         }
     }
 
-    override fun toggleUppercase() {
-        uppercasePreferred = !uppercasePreferred
-        if (activeRow != null) {
-            val chars = selectableCharacters(activeRow!!) ?: return
-            activeIndex = activeIndex.coerceIn(0, chars.lastIndex)
-            pendingChar = chars[activeIndex].toString()
+    override fun toggleLastCharacterCase() {
+        pendingChar?.singleOrNull()?.takeIf { it.isLetter() }?.let { pending ->
+            pendingChar = toggleCase(pending).toString()
             refreshComposingPreview()
+            host.onProcessorStateChanged()
+            return
         }
-        host.onProcessorStateChanged()
-    }
 
-    override fun isUppercasePreferred(): Boolean = uppercasePreferred
+        val buffer = host.getConfirmedBuffer()
+        val last = buffer.lastOrNull()?.takeIf { it.isLetter() } ?: return
+        host.replaceLastConfirmedCharacter(toggleCase(last))
+    }
 
     override fun clearToggleState() {
         super.clearToggleState()
@@ -84,7 +83,6 @@ class AlphabetToggleProcessor(
         pendingChar = null
         activeRow = null
         activeIndex = 0
-        uppercasePreferred = false
         refreshComposingPreview()
         host.onProcessorStateChanged()
     }
@@ -97,13 +95,14 @@ class AlphabetToggleProcessor(
     }
 
     private fun selectableCharacters(row: Int): String? {
-        val chars = KeyboardMappings.alphabetRows[row] ?: return null
-        if (!uppercasePreferred) return chars
-        return chars.filter { it.isUpperCase() }.ifEmpty { chars }
+        return KeyboardMappings.alphabetRows[row]
+    }
+
+    private fun toggleCase(char: Char): Char {
+        return if (char.isLowerCase()) char.uppercaseChar() else char.lowercaseChar()
     }
 
     companion object {
         private const val MODE_LABEL = "A"
-        private const val MODE_SWITCH_LABEL = "切替"
     }
 }

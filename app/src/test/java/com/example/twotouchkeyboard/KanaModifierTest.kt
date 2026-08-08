@@ -25,4 +25,28 @@ class KanaModifierTest {
     fun applyDakuten_returnsNull_forUnsupportedCharacter() {
         assertNull(KanaModifier.applyDakuten('あ'))
     }
+
+    @Test
+    fun cycle_smallKana_cyclesAAndSmallA() {
+        assertEquals('ぁ', KanaModifier.cycle('あ'))
+        assertEquals('あ', KanaModifier.cycle('ぁ'))
+    }
+
+    @Test
+    fun cycle_dakuten_cyclesKaAndGa() {
+        assertEquals('が', KanaModifier.cycle('か'))
+        assertEquals('か', KanaModifier.cycle('が'))
+    }
+
+    @Test
+    fun cycle_haRow_cyclesHaBaAndPa() {
+        assertEquals('ば', KanaModifier.cycle('は'))
+        assertEquals('ぱ', KanaModifier.cycle('ば'))
+        assertEquals('は', KanaModifier.cycle('ぱ'))
+    }
+
+    @Test
+    fun cycle_returnsNull_forUnsupportedCharacter() {
+        assertNull(KanaModifier.cycle('ん'))
+    }
 }
