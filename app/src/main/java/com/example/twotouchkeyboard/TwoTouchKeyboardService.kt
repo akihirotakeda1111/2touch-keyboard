@@ -9,6 +9,7 @@ import android.widget.Button
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.ViewFlipper
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.lifecycle.Lifecycle
@@ -39,6 +40,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     private lateinit var settingsRepository: SettingsRepository
 
     private val keyButtons: MutableMap<KeyboardKey, Button> = mutableMapOf()
+    private lateinit var keyboardFlipper: ViewFlipper
     private lateinit var conversionEngine: ConversionEngine
 
     private val conversionScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -92,6 +94,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         conversionHint = keyboardView.findViewById(R.id.conversion_hint)
         candidateScroll = keyboardView.findViewById(R.id.candidate_scroll)
         candidateContainer = keyboardView.findViewById(R.id.candidate_container)
+        keyboardFlipper = keyboardView.findViewById(R.id.keyboard_flipper)
 
         coordinator = KeyboardInputCoordinator(
             listener = object : KeyboardInputCoordinator.Listener {
@@ -144,9 +147,22 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         bindKey(keyboardView, R.id.key_space, KeyboardKey.Space)
         bindKey(keyboardView, R.id.key_cursor_left, KeyboardKey.CursorLeft)
         bindKey(keyboardView, R.id.key_cursor_right, KeyboardKey.CursorRight)
+        bindSymbolKeyboard(keyboardView)
 
         updateKeyLabels()
+        showMainKeyboard()
         return keyboardView
+    }
+
+    private fun bindSymbolKeyboard(root: View) {
+        SYMBOL_KEY_BINDINGS.forEach { (viewId, symbol) ->
+            root.findViewById<Button>(viewId).setOnClickListener {
+                insertSymbol(symbol)
+            }
+        }
+        root.findViewById<Button>(R.id.symbol_key_close).setOnClickListener {
+            showMainKeyboard()
+        }
     }
 
     private fun bindKey(root: View, viewId: Int, key: KeyboardKey) {
@@ -159,6 +175,11 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
 
     private fun dispatchKey(key: KeyboardKey) {
         coordinator.bindInputConnection(currentInputConnection)
+
+        if (key == KeyboardKey.Hash) {
+            openSymbolKeyboard()
+            return
+        }
 
         if (canHandleConversionKey(key) && handleConversionKey(key)) {
             return
@@ -548,6 +569,9 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     }
 
     private fun getKeyLabel(key: KeyboardKey): String {
+        if (key == KeyboardKey.Hash) {
+            return getString(R.string.key_symbols)
+        }
         if (conversionSession.isActive && key is KeyboardKey.Digit && key.number in 1..9) {
             val candidate = conversionSession.candidateForDigit(key.number)
             if (candidate != null) {
@@ -568,6 +592,54 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         }
         coordinator.clearComposingState()
         resetConversionState()
+        showMainKeyboard()
+    }
+
+    private fun openSymbolKeyboard() {
+        commitComposingForSymbolTransition()
+        showSymbolKeyboard()
+    }
+
+    private fun commitComposingForSymbolTransition() {
+        conversionJob?.cancel()
+        if (conversionSession.isActive) {
+            conversionSession.deactivate()
+            pendingConversionActivation = false
+        }
+        resetConversionState()
+
+        val inputConnection = currentInputConnection
+        if (inputConnection != null) {
+            suppressConversionReset = true
+            coordinator.commitComposingText(inputConnection)
+            coordinator.clearComposingState()
+            suppressConversionReset = false
+        } else {
+            coordinator.clearComposingState()
+        }
+        coordinator.resetPartialInput()
+    }
+
+    private fun insertSymbol(symbol: String) {
+        coordinator.bindInputConnection(currentInputConnection)
+        currentInputConnection?.commitText(symbol, 1)
+        showMainKeyboard()
+    }
+
+    private fun showMainKeyboard() {
+        if (::keyboardFlipper.isInitialized) {
+            keyboardFlipper.displayedChild = INDEX_MAIN_KEYBOARD
+        }
+    }
+
+    private fun showSymbolKeyboard() {
+        if (::keyboardFlipper.isInitialized) {
+            keyboardFlipper.displayedChild = INDEX_SYMBOL_KEYBOARD
+        }
+    }
+
+    private fun resetKeyboardViewState() {
+        showMainKeyboard()
     }
 
     override fun onEvaluateInputViewShown(): Boolean {
@@ -589,6 +661,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         super.onStartInputView(info, restarting)
         if (::coordinator.isInitialized) {
             conversionJob?.cancel()
+            resetKeyboardViewState()
             coordinator.applyEditorInfo(info)
             coordinator.bindInputConnection(currentInputConnection)
             coordinator.resetInputSession()
@@ -618,5 +691,25 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
 
     companion object {
         private const val MAX_CANDIDATE_SHORTCUTS = 9
+        private const val INDEX_MAIN_KEYBOARD = 0
+        private const val INDEX_SYMBOL_KEYBOARD = 1
+
+        private val SYMBOL_KEY_BINDINGS = mapOf(
+            R.id.symbol_key_comma to "、",
+            R.id.symbol_key_period to "。",
+            R.id.symbol_key_exclamation to "！",
+            R.id.symbol_key_question to "？",
+            R.id.symbol_key_middle_dot to "・",
+            R.id.symbol_key_at to "@",
+            R.id.symbol_key_hash to "#",
+            R.id.symbol_key_ampersand to "&",
+            R.id.symbol_key_asterisk to "*",
+            R.id.symbol_key_hyphen to "-",
+            R.id.symbol_key_underscore to "_",
+            R.id.symbol_key_plus to "+",
+            R.id.symbol_key_equals to "=",
+            R.id.symbol_key_slash to "/",
+            R.id.symbol_key_colon to ":",
+        )
     }
 }
