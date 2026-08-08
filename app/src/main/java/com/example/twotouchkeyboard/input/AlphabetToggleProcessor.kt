@@ -47,7 +47,7 @@ class AlphabetToggleProcessor(
                     validIdleRange = 2..9,
                 )
             }
-            KeyboardKey.Star -> "$MODE_SWITCH_LABEL\n$MODE_LABEL"
+            KeyboardKey.Star -> MODE_LABEL
             KeyboardKey.Zero -> "0"
             KeyboardKey.Hash -> "#"
             else -> super.getKeyLabel(key)

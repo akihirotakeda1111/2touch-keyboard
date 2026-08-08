@@ -31,7 +31,7 @@ class AlphabetTwoTouchProcessor(
                 idleHeadLabels = KeyboardMappings.alphabetRowHeadLabels,
                 validIdleRange = 2..9,
             )
-            KeyboardKey.Star -> "$MODE_SWITCH_LABEL\n$MODE_LABEL"
+            KeyboardKey.Star -> MODE_LABEL
             KeyboardKey.Zero -> "0"
             KeyboardKey.Hash -> "#"
             else -> super.getKeyLabel(key)
@@ -102,6 +102,5 @@ class AlphabetTwoTouchProcessor(
 
     companion object {
         private const val MODE_LABEL = "A"
-        private const val MODE_SWITCH_LABEL = "切替"
     }
 }

@@ -19,7 +19,7 @@ class NumberInputProcessor(
     override fun getKeyLabel(key: KeyboardKey): String {
         return when (key) {
             is KeyboardKey.Digit -> key.number.toString()
-            KeyboardKey.Star -> "切替\n123"
+            KeyboardKey.Star -> "123"
             KeyboardKey.Zero -> "0"
             KeyboardKey.Hash -> "#"
             else -> super.getKeyLabel(key)

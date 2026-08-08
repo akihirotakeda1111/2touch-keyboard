@@ -147,10 +147,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         bindKey(keyboardView, R.id.key_space, KeyboardKey.Space)
         bindKey(keyboardView, R.id.key_cursor_left, KeyboardKey.CursorLeft)
         bindKey(keyboardView, R.id.key_cursor_right, KeyboardKey.CursorRight)
-        bindKey(keyboardView, R.id.key_dakuten, KeyboardKey.Dakuten)
-        bindKey(keyboardView, R.id.key_handakuten, KeyboardKey.Handakuten)
-        bindKey(keyboardView, R.id.key_small_kana, KeyboardKey.SmallKana)
-        bindKey(keyboardView, R.id.key_uppercase_toggle, KeyboardKey.UppercaseToggle)
+        bindKey(keyboardView, R.id.key_text_modifier, KeyboardKey.TextModifier)
         bindSymbolKeyboard(keyboardView)
 
         updateKeyLabels()
@@ -197,14 +194,8 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
                     coordinator.onKeyPressed(key)
                 }
             }
-            KeyboardKey.Dakuten,
-            KeyboardKey.Handakuten,
-            KeyboardKey.SmallKana,
-            -> {
-                coordinator.applyKanaModifier(key)
-            }
-            KeyboardKey.UppercaseToggle -> {
-                coordinator.toggleUppercase()
+            KeyboardKey.TextModifier -> {
+                coordinator.applyTextModifier()
                 updateKeyLabels()
             }
             KeyboardKey.Delete -> handleDeleteKey()
@@ -586,8 +577,8 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         if (key == KeyboardKey.Hash) {
             return getString(R.string.key_symbols)
         }
-        if (key == KeyboardKey.UppercaseToggle && coordinator.isUppercasePreferred()) {
-            return getString(R.string.key_uppercase_toggle) + "●"
+        if (key == KeyboardKey.TextModifier) {
+            return coordinator.getTextModifierLabel()
         }
         if (conversionSession.isActive && key is KeyboardKey.Digit && key.number in 1..9) {
             val candidate = conversionSession.candidateForDigit(key.number)
