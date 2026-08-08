@@ -164,7 +164,13 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         }
 
         when (key) {
-            KeyboardKey.Star -> coordinator.handleModeSwitchKey()
+            KeyboardKey.Star -> {
+                if (coordinator.isModeSwitchEnabled()) {
+                    coordinator.handleModeSwitchKey()
+                } else {
+                    coordinator.onKeyPressed(key)
+                }
+            }
             KeyboardKey.Delete -> handleDeleteKey()
             KeyboardKey.Enter -> handleEnterKey()
             KeyboardKey.Space -> handleSpaceKey()
@@ -175,6 +181,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     }
 
     private fun canHandleConversionKey(key: KeyboardKey): Boolean {
+        if (!coordinator.isConversionEnabled()) return false
         if (coordinator.getInputMode() != InputMode.HIRAGANA) return false
         if (coordinator.getComposingText().isEmpty()) return false
         if (coordinator.isMidCharacterInput()) return false
@@ -226,7 +233,8 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     }
 
     private fun handleSpaceKey() {
-        if (coordinator.getInputMode() == InputMode.HIRAGANA &&
+        if (coordinator.isConversionEnabled() &&
+            coordinator.getInputMode() == InputMode.HIRAGANA &&
             coordinator.getComposingText().isNotEmpty() &&
             !coordinator.isMidCharacterInput()
         ) {
@@ -259,7 +267,8 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     }
 
     private fun handleCursorKey(direction: Int) {
-        if (coordinator.getInputMode() == InputMode.HIRAGANA &&
+        if (coordinator.isConversionEnabled() &&
+            coordinator.getInputMode() == InputMode.HIRAGANA &&
             coordinator.getComposingText().isNotEmpty() &&
             !coordinator.isMidCharacterInput()
         ) {
@@ -320,6 +329,10 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     }
 
     private fun onComposingTextChanged(composingText: String) {
+        if (!coordinator.isConversionEnabled()) {
+            lastComposingTextForConversion = composingText
+            return
+        }
         if (!suppressConversionReset && composingText != lastComposingTextForConversion) {
             conversionSession.deactivate()
             pendingConversionActivation = false
@@ -345,6 +358,10 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         composing: String,
         activateOnResult: Boolean = false,
     ) {
+        if (!coordinator.isConversionEnabled()) {
+            resetConversionState()
+            return
+        }
         conversionJob?.cancel()
         if (composing.isEmpty()) {
             resetConversionState()
@@ -530,7 +547,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         super.onStartInputView(info, restarting)
         if (::coordinator.isInitialized) {
             conversionJob?.cancel()
-            coordinator.bindEditorInfo(info)
+            coordinator.applyEditorInfo(info)
             coordinator.bindInputConnection(currentInputConnection)
             coordinator.resetInputSession()
             resetConversionState()
