@@ -5,7 +5,7 @@ import com.example.twotouchkeyboard.KeyboardMappings
 
 class AlphabetTwoTouchProcessor(
     host: InputProcessorHost,
-) : BaseInputProcessor(host) {
+) : BaseInputProcessor(host), AlphabetCaseModifierSupport {
 
     enum class State { IDLE, WAITING_VOWEL }
 
@@ -26,7 +26,7 @@ class AlphabetTwoTouchProcessor(
             is KeyboardKey.Digit -> getTwoTouchDigitLabel(
                 number = key.number,
                 waiting = state == State.WAITING_VOWEL,
-                activeChars = activeRow?.let { KeyboardMappings.alphabetRows[it] },
+                activeChars = activeRow?.let { selectableCharacters(it) },
                 idleHeadLabels = KeyboardMappings.alphabetRowHeadLabels,
                 validIdleRange = 2..9,
             )
@@ -35,6 +35,11 @@ class AlphabetTwoTouchProcessor(
             KeyboardKey.Hash -> "#"
             else -> super.getKeyLabel(key)
         }
+    }
+
+    override fun toggleLastCharacterCase() {
+        val last = host.getConfirmedBuffer().lastOrNull()?.takeIf { it.isLetter() } ?: return
+        host.replaceLastConfirmedCharacter(toggleCase(last))
     }
 
     override fun hasPartialTwoTouchInput(): Boolean = state == State.WAITING_VOWEL
@@ -69,7 +74,7 @@ class AlphabetTwoTouchProcessor(
         when (key) {
             is KeyboardKey.Digit -> {
                 val row = activeRow ?: return
-                val chars = KeyboardMappings.alphabetRows[row] ?: return
+                val chars = selectableCharacters(row) ?: return
                 if (key.number !in 1..chars.length) return
                 val index = key.number - 1
                 host.appendConfirmedCharacter(chars[index].toString())
@@ -79,6 +84,14 @@ class AlphabetTwoTouchProcessor(
             }
             else -> Unit
         }
+    }
+
+    private fun selectableCharacters(row: Int): String? {
+        return KeyboardMappings.alphabetRows[row]
+    }
+
+    private fun toggleCase(char: Char): Char {
+        return if (char.isLowerCase()) char.uppercaseChar() else char.lowercaseChar()
     }
 
     companion object {

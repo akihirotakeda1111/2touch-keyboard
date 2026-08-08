@@ -15,4 +15,5 @@ sealed class KeyboardKey {
     data object Space : KeyboardKey()
     data object CursorLeft : KeyboardKey()
     data object CursorRight : KeyboardKey()
+    data object TextModifier : KeyboardKey()
 }

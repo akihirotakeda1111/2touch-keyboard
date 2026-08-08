@@ -147,6 +147,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         bindKey(keyboardView, R.id.key_space, KeyboardKey.Space)
         bindKey(keyboardView, R.id.key_cursor_left, KeyboardKey.CursorLeft)
         bindKey(keyboardView, R.id.key_cursor_right, KeyboardKey.CursorRight)
+        bindKey(keyboardView, R.id.key_text_modifier, KeyboardKey.TextModifier)
         bindSymbolKeyboard(keyboardView)
 
         updateKeyLabels()
@@ -192,6 +193,10 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
                 } else {
                     coordinator.onKeyPressed(key)
                 }
+            }
+            KeyboardKey.TextModifier -> {
+                coordinator.applyTextModifier()
+                updateKeyLabels()
             }
             KeyboardKey.Delete -> handleDeleteKey()
             KeyboardKey.Enter -> handleEnterKey()
@@ -571,6 +576,9 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     private fun getKeyLabel(key: KeyboardKey): String {
         if (key == KeyboardKey.Hash) {
             return getString(R.string.key_symbols)
+        }
+        if (key == KeyboardKey.TextModifier) {
+            return coordinator.getTextModifierLabel()
         }
         if (conversionSession.isActive && key is KeyboardKey.Digit && key.number in 1..9) {
             val candidate = conversionSession.candidateForDigit(key.number)

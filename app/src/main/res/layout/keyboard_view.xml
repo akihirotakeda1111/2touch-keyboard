@@ -135,9 +135,10 @@
 
             <Button
                 android:id="@+id/key_star"
-                style="@style/KeyboardKey"
+                style="@style/KeyboardTallKey"
                 android:layout_column="0"
                 android:layout_row="3"
+                android:layout_rowSpan="2"
                 android:text="*" />
 
             <Button
@@ -156,16 +157,23 @@
 
             <Button
                 android:id="@+id/key_enter"
-                style="@style/KeyboardFunctionKey"
+                style="@style/KeyboardTallKey"
                 android:layout_column="3"
                 android:layout_row="3"
+                android:layout_rowSpan="2"
                 android:text="@string/key_enter" />
+
+            <Button
+                android:id="@+id/key_text_modifier"
+                style="@style/KeyboardKey"
+                android:layout_column="1"
+                android:layout_row="4"
+                android:text="@string/key_text_modifier_kana" />
 
             <Button
                 android:id="@+id/key_space"
                 style="@style/KeyboardSpaceKey"
-                android:layout_column="0"
-                android:layout_columnSpan="4"
+                android:layout_column="2"
                 android:layout_row="4"
                 android:text="@string/key_space" />
 

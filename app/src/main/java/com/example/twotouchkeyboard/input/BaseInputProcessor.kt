@@ -94,6 +94,7 @@ abstract class BaseInputProcessor(
             KeyboardKey.Space -> "Space"
             KeyboardKey.CursorLeft -> "←"
             KeyboardKey.CursorRight -> "→"
+            KeyboardKey.TextModifier -> "゛゜小"
             else -> ""
         }
     }

@@ -29,6 +29,7 @@ interface InputProcessorHost {
     fun getConfirmedBuffer(): String
     fun getComposingPreview(): String
     fun deleteLastConfirmedCharacter()
+    fun replaceLastConfirmedCharacter(newChar: Char)
     fun commitComposingText(ic: InputConnection)
     fun clearComposingState()
     fun getInputMode(): InputMode

@@ -7,6 +7,7 @@ import com.example.twotouchkeyboard.input.HiraganaToggleProcessor
 import com.example.twotouchkeyboard.input.HiraganaTwoTouchProcessor
 import com.example.twotouchkeyboard.input.InputProcessor
 import com.example.twotouchkeyboard.input.InputProcessorHost
+import com.example.twotouchkeyboard.input.AlphabetCaseModifierSupport
 import com.example.twotouchkeyboard.input.NumberInputProcessor
 import android.view.inputmethod.EditorInfo
 
@@ -153,6 +154,39 @@ class KeyboardInputCoordinator(
         listener.onStateChanged()
     }
 
+    fun applyTextModifier() {
+        when (currentInputMode) {
+            InputMode.HIRAGANA -> applyKanaCycleModifier()
+            InputMode.ALPHABET -> {
+                (activeProcessor() as? AlphabetCaseModifierSupport)?.toggleLastCharacterCase()
+            }
+            InputMode.NUMBER -> Unit
+        }
+    }
+
+    fun getTextModifierLabel(): String {
+        return when (currentInputMode) {
+            InputMode.HIRAGANA -> "゛゜小"
+            InputMode.ALPHABET -> "A/a"
+            InputMode.NUMBER -> "─"
+        }
+    }
+
+    private fun applyKanaCycleModifier() {
+        if (currentInputMode != InputMode.HIRAGANA || fieldProfile.passthroughEnabled) return
+
+        activeProcessor().confirmPendingInput()
+        activeProcessor().resetPartialInput()
+        if (confirmedBuffer.isEmpty()) return
+
+        val lastIndex = confirmedBuffer.lastIndex
+        val transformed = KanaModifier.cycle(confirmedBuffer[lastIndex]) ?: return
+
+        confirmedBuffer[lastIndex] = transformed
+        currentPreview = confirmedBuffer.toString()
+        listener.onComposingTextUpdated(currentPreview)
+    }
+
     fun confirmAllPendingInput() {
         activeProcessor().confirmPendingInput()
     }
@@ -232,6 +266,14 @@ class KeyboardInputCoordinator(
     }
 
     override fun getComposingPreview(): String = currentPreview
+
+    override fun replaceLastConfirmedCharacter(newChar: Char) {
+        if (fieldProfile.passthroughEnabled) return
+        if (confirmedBuffer.isEmpty()) return
+        confirmedBuffer[confirmedBuffer.lastIndex] = newChar
+        currentPreview = confirmedBuffer.toString()
+        listener.onComposingTextUpdated(currentPreview)
+    }
 
     override fun deleteLastConfirmedCharacter() {
         if (fieldProfile.passthroughEnabled) {
