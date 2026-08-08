@@ -29,6 +29,7 @@ class KeyboardInputCoordinator(
     private var currentPreview: String = ""
     private var inputConnection: InputConnection? = null
     private var currentEditorInfo: EditorInfo? = null
+    private var fieldProfile: InputFieldProfile = InputFieldProfile.DEFAULT
 
     private var currentInputMode: InputMode = InputMode.HIRAGANA
 
@@ -50,7 +51,34 @@ class KeyboardInputCoordinator(
         currentEditorInfo = info
     }
 
+    fun applyEditorInfo(info: EditorInfo?) {
+        currentEditorInfo = info
+        fieldProfile = InputFieldProfileResolver.resolve(info)
+        applyFieldProfile()
+    }
+
+    fun getFieldProfile(): InputFieldProfile = fieldProfile
+
+    fun isConversionEnabled(): Boolean = fieldProfile.conversionEnabled
+
+    fun isModeSwitchEnabled(): Boolean = fieldProfile.modeSwitchEnabled
+
+    fun isPassthroughEnabled(): Boolean = fieldProfile.passthroughEnabled
+
+    private fun applyFieldProfile() {
+        activeProcessor().resetPartialInput()
+        if (currentInputMode != fieldProfile.preferredMode) {
+            currentInputMode = fieldProfile.preferredMode
+            listener.onInputModeChanged(currentInputMode)
+        }
+        listener.onStateChanged()
+    }
+
     fun onKeyPressed(key: KeyboardKey) {
+        if (key == KeyboardKey.Star && !fieldProfile.modeSwitchEnabled) {
+            inputConnection?.commitText("*", 1)
+            return
+        }
         activeProcessor().onKeyPressed(key)
     }
 
@@ -75,16 +103,23 @@ class KeyboardInputCoordinator(
     }
 
     fun handleModeSwitchKey() {
+        if (!fieldProfile.modeSwitchEnabled) return
         inputConnection?.let { commitComposingText(it) }
         clearComposingState()
         cycleInputMode()
     }
 
     fun getKeyLabel(key: KeyboardKey): String {
+        if (key == KeyboardKey.Star && !fieldProfile.modeSwitchEnabled) {
+            return "*"
+        }
         return activeProcessor().getKeyLabel(key)
     }
 
-    fun getComposingText(): String = currentPreview
+    fun getComposingText(): String {
+        if (fieldProfile.passthroughEnabled) return ""
+        return currentPreview
+    }
 
     fun isMidCharacterInput(): Boolean = activeProcessor().isMidCharacterInput()
 
@@ -100,6 +135,9 @@ class KeyboardInputCoordinator(
         if (confirmedBuffer.isEmpty() && currentPreview.isEmpty()) return
         confirmedBuffer.clear()
         currentPreview = ""
+        if (fieldProfile.passthroughEnabled) {
+            inputConnection?.finishComposingText()
+        }
         listener.onComposingTextUpdated("")
     }
 
@@ -120,6 +158,7 @@ class KeyboardInputCoordinator(
     }
 
     fun cycleInputMode(): InputMode {
+        if (!fieldProfile.modeSwitchEnabled) return currentInputMode
         activeProcessor().resetPartialInput()
         currentInputMode = when (currentInputMode) {
             InputMode.HIRAGANA -> InputMode.ALPHABET
@@ -154,12 +193,31 @@ class KeyboardInputCoordinator(
     }
 
     override fun appendConfirmedCharacter(character: String) {
+        if (fieldProfile.passthroughEnabled) {
+            inputConnection?.commitText(character, 1)
+            currentPreview = ""
+            listener.onComposingTextUpdated("")
+            return
+        }
         confirmedBuffer.append(character)
         currentPreview = confirmedBuffer.toString()
         listener.onComposingTextUpdated(currentPreview)
     }
 
     override fun setComposingPreview(text: String) {
+        if (fieldProfile.passthroughEnabled) {
+            currentPreview = text
+            val ic = inputConnection
+            if (ic != null) {
+                if (text.isEmpty()) {
+                    ic.finishComposingText()
+                } else {
+                    ic.setComposingText(text, 1)
+                }
+            }
+            listener.onComposingTextUpdated("")
+            return
+        }
         currentPreview = text
         listener.onComposingTextUpdated(text)
     }
@@ -168,11 +226,20 @@ class KeyboardInputCoordinator(
         listener.onStateChanged()
     }
 
-    override fun getConfirmedBuffer(): String = confirmedBuffer.toString()
+    override fun getConfirmedBuffer(): String {
+        if (fieldProfile.passthroughEnabled) return ""
+        return confirmedBuffer.toString()
+    }
 
     override fun getComposingPreview(): String = currentPreview
 
     override fun deleteLastConfirmedCharacter() {
+        if (fieldProfile.passthroughEnabled) {
+            inputConnection?.deleteSurroundingText(1, 0)
+            currentPreview = ""
+            listener.onComposingTextUpdated("")
+            return
+        }
         if (confirmedBuffer.isEmpty()) return
         confirmedBuffer.deleteCharAt(confirmedBuffer.length - 1)
         currentPreview = confirmedBuffer.toString()
@@ -181,6 +248,10 @@ class KeyboardInputCoordinator(
 
     override fun commitComposingText(ic: InputConnection) {
         confirmAllPendingInput()
+        if (fieldProfile.passthroughEnabled) {
+            ic.finishComposingText()
+            return
+        }
         val text = getComposingPreview()
         if (text.isNotEmpty()) {
             ic.commitText(text, 1)
