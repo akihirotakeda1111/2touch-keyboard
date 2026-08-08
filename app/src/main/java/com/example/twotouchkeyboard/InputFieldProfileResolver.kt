@@ -41,8 +41,7 @@ object InputFieldProfileResolver {
     private fun isAlphabetPassthroughVariation(variation: Int): Boolean {
         return variation == InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS ||
             variation == InputType.TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS ||
-            variation == InputType.TYPE_TEXT_VARIATION_URI ||
-            variation == InputType.TYPE_TEXT_VARIATION_WEB_URI
+            variation == InputType.TYPE_TEXT_VARIATION_URI
     }
 
     private fun passthroughProfile(mode: InputMode): InputFieldProfile {
