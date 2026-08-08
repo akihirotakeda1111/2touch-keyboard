@@ -71,4 +71,14 @@ class AlphabetPredictionSupportTest {
     fun lookupInput_normalizesToLowercase() {
         assertEquals("hel", AlphabetPredictionSupport.lookupInput("HEL"))
     }
+
+    @Test
+    fun prepareEnglishCandidates_returnsCorrections_whenNoPrefixMatchesExist() {
+        val prepared = AlphabetPredictionSupport.prepareEnglishCandidates(
+            candidates = listOf("help", "hlep"),
+            input = "hlep",
+        )
+
+        assertEquals(listOf("help"), prepared)
+    }
 }

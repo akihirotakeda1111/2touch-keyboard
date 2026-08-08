@@ -23,10 +23,26 @@ object AlphabetPredictionSupport {
     fun lookupInput(input: String): String = input.lowercase()
 
     fun prepareEnglishCandidates(candidates: List<String>, input: String): List<String> {
-        val englishCandidates = filterEnglishCandidates(candidates, input)
-        if (englishCandidates.isNotEmpty()) {
-            return rankCandidates(englishCandidates, input)
+        val englishCandidates = candidates.filter { isEnglishWordCandidate(it) }
+        val lowerInput = input.lowercase()
+        val hasPredictivePrefixMatches = englishCandidates.any { candidate ->
+            val lowerCandidate = candidate.lowercase()
+            lowerCandidate.startsWith(lowerInput) && lowerCandidate.length > lowerInput.length
         }
+        if (hasPredictivePrefixMatches) {
+            val prefixCandidates = englishCandidates.filter { candidate ->
+                candidate.lowercase().startsWith(lowerInput)
+            }
+            return rankCandidates(prefixCandidates, input)
+        }
+
+        val corrections = englishCandidates.filter { candidate ->
+            !candidate.equals(input, ignoreCase = true)
+        }
+        if (corrections.isNotEmpty()) {
+            return corrections.distinct()
+        }
+
         return if (isEnglishWordCandidate(input)) listOf(input) else emptyList()
     }
 

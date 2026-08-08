@@ -3,10 +3,11 @@ package com.example.twotouchkeyboard.english
 import android.content.Context
 
 /**
- * Prefix trie backed by word frequency scores for English prediction.
+ * Prefix trie backed by word frequency scores for English prediction and spell correction.
  */
 class EnglishPrefixDictionary private constructor(
     private val root: Node,
+    private val allEntries: List<WordEntry>,
 ) {
 
     fun predict(prefix: String, limit: Int = MAX_CANDIDATES): List<String> {
@@ -28,16 +29,56 @@ class EnglishPrefixDictionary private constructor(
                     (entry.word.length > lowerPrefix.length ||
                         !entry.word.equals(prefix, ignoreCase = true))
             }
+            .sortedWith(entryComparator())
+            .take(limit)
+            .map { entry -> matchInputCase(prefix, entry.word) }
+            .toList()
+    }
+
+    fun correct(
+        input: String,
+        limit: Int = MAX_CANDIDATES,
+        maxDistance: Int = MAX_EDIT_DISTANCE,
+    ): List<String> {
+        if (input.length < MIN_LENGTH_FOR_CORRECTION || limit <= 0) return emptyList()
+
+        val lowerInput = input.lowercase()
+        val minLength = (lowerInput.length - maxDistance).coerceAtLeast(1)
+        val maxLength = lowerInput.length + maxDistance
+
+        return allEntries
+            .asSequence()
+            .filter { entry ->
+                entry.word.length in minLength..maxLength &&
+                    !entry.word.startsWith(lowerInput) &&
+                    !entry.word.equals(lowerInput, ignoreCase = true)
+            }
+            .mapNotNull { entry ->
+                val distance = EnglishSpellingSupport.damerauLevenshtein(lowerInput, entry.word)
+                if (distance in 1..maxDistance) {
+                    ScoredEntry(entry, distance)
+                } else {
+                    null
+                }
+            }
             .sortedWith(
-                compareByDescending<WordEntry> { it.frequency }
-                    .thenBy { it.word.length }
-                    .thenBy { it.word },
+                compareBy<ScoredEntry> { it.distance }
+                    .thenByDescending { it.entry.frequency }
+                    .thenBy { it.entry.word },
             )
             .take(limit)
-            .map { entry ->
-                matchInputCase(prefix, entry.word)
-            }
+            .map { scored -> matchInputCase(input, scored.entry.word) }
             .toList()
+    }
+
+    fun suggest(input: String, limit: Int = MAX_CANDIDATES): List<String> {
+        if (input.isEmpty() || limit <= 0) return emptyList()
+
+        val prefixMatches = predict(input, limit)
+        if (prefixMatches.isNotEmpty()) return prefixMatches
+
+        if (input.length < MIN_LENGTH_FOR_CORRECTION) return emptyList()
+        return correct(input, limit)
     }
 
     private fun matchInputCase(input: String, word: String): String {
@@ -59,9 +100,18 @@ class EnglishPrefixDictionary private constructor(
         }
     }
 
+    private fun entryComparator() = compareByDescending<WordEntry> { it.frequency }
+        .thenBy { it.word.length }
+        .thenBy { it.word }
+
     private data class WordEntry(
         val word: String,
         val frequency: Int,
+    )
+
+    private data class ScoredEntry(
+        val entry: WordEntry,
+        val distance: Int,
     )
 
     private class Node(
@@ -72,6 +122,8 @@ class EnglishPrefixDictionary private constructor(
     companion object {
         private const val ASSET_NAME = "english_word_freq.tsv"
         const val MAX_CANDIDATES = 20
+        const val MAX_EDIT_DISTANCE = 2
+        const val MIN_LENGTH_FOR_CORRECTION = 4
 
         fun load(context: Context): EnglishPrefixDictionary {
             val entries = context.assets.open(ASSET_NAME).bufferedReader().useLines { lines ->
@@ -82,10 +134,13 @@ class EnglishPrefixDictionary private constructor(
 
         fun fromEntries(entries: List<Pair<String, Int>>): EnglishPrefixDictionary {
             val root = Node()
+            val allEntries = mutableListOf<WordEntry>()
             entries.forEach { (word, frequency) ->
-                insert(root, word.lowercase(), frequency)
+                val normalized = word.lowercase()
+                insert(root, normalized, frequency)
+                allEntries.add(WordEntry(normalized, frequency))
             }
-            return EnglishPrefixDictionary(root)
+            return EnglishPrefixDictionary(root, allEntries)
         }
 
         private fun parseLine(line: String): Pair<String, Int>? {
