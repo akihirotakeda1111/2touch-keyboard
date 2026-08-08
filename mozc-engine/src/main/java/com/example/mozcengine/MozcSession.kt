@@ -28,7 +28,7 @@ class MozcSession private constructor(
 
         resetContext()
         val output = sendKey(buildTextInputKey(input, mode))
-        return extractCandidates(output, input)
+        return extractCandidates(output, input, mode)
     }
 
     fun deleteSession() {
@@ -176,7 +176,11 @@ class MozcSession private constructor(
             return Command.parseFrom(responseBytes)
         }
 
-        private fun extractCandidates(output: Output, fallbackInput: String): List<String> {
+        private fun extractCandidates(
+            output: Output,
+            fallbackInput: String,
+            mode: ConversionMode,
+        ): List<String> {
             val candidates = mutableListOf<String>()
 
             if (output.hasAllCandidateWords()) {
@@ -208,7 +212,11 @@ class MozcSession private constructor(
                 candidates.add(fallbackInput)
             }
 
-            return candidates.distinct()
+            val distinct = candidates.distinct()
+            return when (mode) {
+                ConversionMode.ALPHABET -> AlphabetPredictionSupport.rankCandidates(distinct, fallbackInput)
+                else -> distinct
+            }
         }
     }
 }

@@ -5,6 +5,7 @@ import android.util.Log
 import com.example.mozcengine.ConversionEngine
 import com.example.mozcengine.ConversionMode
 import com.example.mozcengine.MozcConversionEngine
+import com.example.mozcengine.AlphabetPredictionSupport
 import kotlinx.coroutines.delay
 
 object ConversionEngineProvider {
@@ -56,9 +57,20 @@ class DummyConversionEngine : ConversionEngine {
     }
 
     private fun lookupAlphabetCandidates(input: String): List<String> {
-        val upper = input.uppercase()
-        val lower = input.lowercase()
-        return listOf(lower, upper, "${lower}ing", "${lower}s").distinct()
+        if (input.isEmpty()) return emptyList()
+
+        val lowerInput = input.lowercase()
+        val predictions = ENGLISH_DICTIONARY
+            .asSequence()
+            .filter { word ->
+                val lowerWord = word.lowercase()
+                lowerWord.startsWith(lowerInput) && lowerWord.length > lowerInput.length
+            }
+            .sortedBy { it.length }
+            .take(9)
+            .toList()
+
+        return AlphabetPredictionSupport.rankCandidates(predictions + input, input)
     }
 
     private fun toFakeKanji(input: String): String {
@@ -87,6 +99,18 @@ class DummyConversionEngine : ConversionEngine {
             "さくら" to listOf("さくら", "桜", "佐倉"),
             "にほん" to listOf("にほん", "日本", "二本"),
             "てすと" to listOf("てすと", "テスト", "試験"),
+        )
+
+        private val ENGLISH_DICTIONARY: Set<String> = setOf(
+            "hello", "help", "held", "hold", "home", "hope", "hour", "house",
+            "test", "text", "team", "tell", "term", "time", "type", "take",
+            "world", "word", "work", "water", "watch", "welcome", "window",
+            "apple", "about", "after", "again", "allow", "alpha", "answer",
+            "email", "enter", "error", "event", "every", "example",
+            "keyboard", "language", "message", "mobile", "number", "password",
+            "phone", "please", "predict", "prediction", "search", "select",
+            "send", "server", "service", "system", "thanks", "today", "update",
+            "user", "value", "video", "voice", "write", "yellow",
         )
     }
 }
