@@ -15,15 +15,18 @@ abstract class BaseInputProcessor(
     protected var pendingChar: String? = null
 
     override fun resetPartialInput() {
+        host.cancelToggleAutoCommit()
         pendingChar = null
         refreshComposingPreview()
     }
 
     override fun resetInputSession() {
+        host.cancelToggleAutoCommit()
         resetPartialInput()
     }
 
     override fun confirmPendingInput() {
+        host.cancelToggleAutoCommit()
         pendingChar?.let { host.appendConfirmedCharacter(it) }
         pendingChar = null
         refreshComposingPreview()
@@ -98,7 +101,13 @@ abstract class BaseInputProcessor(
     protected open fun hasPartialTwoTouchInput(): Boolean = false
 
     protected open fun clearToggleState() {
+        host.cancelToggleAutoCommit()
         pendingChar = null
+    }
+
+    protected fun scheduleToggleAutoCommit() {
+        if (pendingChar == null) return
+        host.scheduleToggleAutoCommit { confirmPendingInput() }
     }
 
     protected fun refreshComposingPreview() {

@@ -34,4 +34,6 @@ interface InputProcessorHost {
     fun getInputMode(): InputMode
     fun requestConversion()
     fun commitDirectText(text: String)
+    fun scheduleToggleAutoCommit(onTimeout: () -> Unit)
+    fun cancelToggleAutoCommit()
 }

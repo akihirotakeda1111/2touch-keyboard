@@ -21,6 +21,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -41,6 +42,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
 
     private val conversionScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var conversionJob: Job? = null
+    private var toggleAutoCommitJob: Job? = null
     private var settingsCollectJob: Job? = null
 
     private val conversionSession = ConversionSession()
@@ -50,6 +52,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
 
     private var currentHiraganaMethod = CharacterInputMethod.TWOTOUCH
     private var currentAlphabetMethod = CharacterInputMethod.TOGGLE
+    private var toggleAutoCommitTimeoutMs = SettingsRepository.DEFAULT_TOGGLE_AUTO_COMMIT_TIMEOUT_MS
 
     override fun onCreate() {
         lifecycleRegistry.currentState = Lifecycle.State.CREATED
@@ -62,11 +65,13 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
             combine(
                 settingsRepository.hiraganaInputMode,
                 settingsRepository.alphabetInputMode,
-            ) { hiragana, alphabet ->
-                hiragana to alphabet
-            }.collect { (hiragana, alphabet) ->
+                settingsRepository.toggleAutoCommitTimeoutMs,
+            ) { hiragana, alphabet, timeoutMs ->
+                Triple(hiragana, alphabet, timeoutMs)
+            }.collect { (hiragana, alphabet, timeoutMs) ->
                 currentHiraganaMethod = hiragana
                 currentAlphabetMethod = alphabet
+                toggleAutoCommitTimeoutMs = timeoutMs
                 if (::coordinator.isInitialized) {
                     coordinator.setHiraganaInputMethod(hiragana)
                     coordinator.setAlphabetInputMethod(alphabet)
@@ -100,6 +105,20 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
                 override fun onInputModeChanged(mode: InputMode) {
                     resetConversionState()
                     updateKeyLabels()
+                }
+
+                override fun scheduleToggleAutoCommit(onTimeout: () -> Unit) {
+                    toggleAutoCommitJob?.cancel()
+                    if (toggleAutoCommitTimeoutMs <= 0) return
+                    toggleAutoCommitJob = conversionScope.launch {
+                        delay(toggleAutoCommitTimeoutMs.toLong())
+                        onTimeout()
+                    }
+                }
+
+                override fun cancelToggleAutoCommit() {
+                    toggleAutoCommitJob?.cancel()
+                    toggleAutoCommitJob = null
                 }
             },
         )
@@ -530,6 +549,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     override fun onDestroy() {
         lifecycleRegistry.currentState = Lifecycle.State.DESTROYED
         settingsCollectJob?.cancel()
+        toggleAutoCommitJob?.cancel()
         conversionScope.cancel()
         if (::conversionEngine.isInitialized) {
             conversionEngine.close()

@@ -21,6 +21,8 @@ class KeyboardInputCoordinator(
         fun onStateChanged()
         fun onComposingTextUpdated(composingText: String)
         fun onInputModeChanged(mode: InputMode)
+        fun scheduleToggleAutoCommit(onTimeout: () -> Unit)
+        fun cancelToggleAutoCommit()
     }
 
     private val confirmedBuffer = StringBuilder()
@@ -198,6 +200,14 @@ class KeyboardInputCoordinator(
 
     override fun commitDirectText(text: String) {
         inputConnection?.commitText(text, 1)
+    }
+
+    override fun scheduleToggleAutoCommit(onTimeout: () -> Unit) {
+        listener.scheduleToggleAutoCommit(onTimeout)
+    }
+
+    override fun cancelToggleAutoCommit() {
+        listener.cancelToggleAutoCommit()
     }
 
     private fun activeProcessor(): InputProcessor = when (currentInputMode) {
