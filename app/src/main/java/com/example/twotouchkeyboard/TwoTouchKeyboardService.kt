@@ -398,10 +398,15 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
 
         val target = resolveConversionTarget(composing)
         val requestComposing = composing
+        val lookupTarget = if (coordinator.getInputMode() == InputMode.ALPHABET) {
+            AlphabetPredictionSupport.lookupInput(target)
+        } else {
+            target
+        }
 
         conversionJob = conversionScope.launch {
             val rawCandidates = withContext(Dispatchers.Default) {
-                conversionEngine.convert(target, coordinator.getInputMode().toConversionMode())
+                conversionEngine.convert(lookupTarget, coordinator.getInputMode().toConversionMode())
             }
             if (requestComposing != coordinator.getComposingText()) return@launch
 

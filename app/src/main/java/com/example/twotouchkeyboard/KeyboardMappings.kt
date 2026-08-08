@@ -14,14 +14,14 @@ object KeyboardMappings {
     )
 
     val alphabetRows: Map<Int, String> = mapOf(
-        2 to "ABC",
-        3 to "DEF",
-        4 to "GHI",
-        5 to "JKL",
-        6 to "MNO",
-        7 to "PQRS",
-        8 to "TUV",
-        9 to "WXYZ",
+        2 to "abcABC",
+        3 to "defDEF",
+        4 to "ghiGHI",
+        5 to "jklJKL",
+        6 to "mnoMNO",
+        7 to "pqrsPQRS",
+        8 to "tuvTUV",
+        9 to "wxyzWXYZ",
     )
 
     const val symbolRow: String = "、。？！・"

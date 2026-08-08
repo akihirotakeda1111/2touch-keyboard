@@ -126,9 +126,10 @@ abstract class BaseInputProcessor(
         validIdleRange: IntRange,
     ): String {
         if (waiting && activeChars != null) {
-            if (number !in 1..5) return number.toString()
+            val maxIndex = activeChars.length.coerceAtMost(9)
+            if (number !in 1..maxIndex) return number.toString()
             val index = number - 1
-            return if (index < activeChars.length) activeChars[index].toString() else number.toString()
+            return activeChars[index].toString()
         }
 
         if (number !in validIdleRange) return number.toString()

@@ -86,9 +86,13 @@ class MozcSession private constructor(
     }
 
     private fun buildTextInputKey(input: String, mode: ConversionMode): KeyEvent {
+        val keyString = when (mode) {
+            ConversionMode.ALPHABET -> input.lowercase()
+            else -> input
+        }
         val builder = KeyEvent.newBuilder()
             .setSpecialKey(KeyEvent.SpecialKey.TEXT_INPUT)
-            .setKeyString(input)
+            .setKeyString(keyString)
             .setInputStyle(KeyEvent.InputStyle.AS_IS)
 
         when (mode) {

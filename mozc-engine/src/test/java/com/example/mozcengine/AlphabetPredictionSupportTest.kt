@@ -56,4 +56,19 @@ class AlphabetPredictionSupportTest {
             ),
         )
     }
+
+    @Test
+    fun filterEnglishCandidates_matchesUppercaseInput() {
+        val filtered = AlphabetPredictionSupport.filterEnglishCandidates(
+            candidates = listOf("hello", "help", "world"),
+            input = "HE",
+        )
+
+        assertEquals(listOf("hello", "help"), filtered)
+    }
+
+    @Test
+    fun lookupInput_normalizesToLowercase() {
+        assertEquals("hel", AlphabetPredictionSupport.lookupInput("HEL"))
+    }
 }

@@ -20,6 +20,8 @@ object AlphabetPredictionSupport {
         }
     }
 
+    fun lookupInput(input: String): String = input.lowercase()
+
     fun prepareEnglishCandidates(candidates: List<String>, input: String): List<String> {
         val englishCandidates = filterEnglishCandidates(candidates, input)
         if (englishCandidates.isNotEmpty()) {
