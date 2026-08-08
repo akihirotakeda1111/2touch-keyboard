@@ -25,6 +25,7 @@ class AlphabetToggleProcessor(
                 pendingChar = chars[activeIndex].toString()
                 refreshComposingPreview()
                 host.onProcessorStateChanged()
+                scheduleToggleAutoCommit()
             }
             else -> Unit
         }

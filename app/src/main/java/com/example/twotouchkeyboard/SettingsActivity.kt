@@ -22,12 +22,16 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
@@ -71,6 +75,9 @@ private fun SettingsScreen(
     val alphabetMode by repository.alphabetInputMode.collectAsStateWithLifecycle(
         initialValue = CharacterInputMethod.TOGGLE,
     )
+    val toggleAutoCommitTimeoutMs by repository.toggleAutoCommitTimeoutMs.collectAsStateWithLifecycle(
+        initialValue = SettingsRepository.DEFAULT_TOGGLE_AUTO_COMMIT_TIMEOUT_MS,
+    )
     val scope = rememberCoroutineScope()
 
     Scaffold { innerPadding ->
@@ -103,6 +110,15 @@ private fun SettingsScreen(
                 selected = alphabetMode,
                 onSelected = { method ->
                     scope.launch { repository.setAlphabetInputMode(method) }
+                },
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            ToggleAutoCommitTimeoutSection(
+                timeoutMs = toggleAutoCommitTimeoutMs,
+                onTimeoutChange = { timeoutMs ->
+                    scope.launch { repository.setToggleAutoCommitTimeoutMs(timeoutMs) }
                 },
             )
 
@@ -160,6 +176,43 @@ private fun InputMethodSection(
             value = CharacterInputMethod.TOGGLE,
             selected = selected,
             onSelected = onSelected,
+        )
+    }
+}
+
+@Composable
+private fun ToggleAutoCommitTimeoutSection(
+    timeoutMs: Int,
+    onTimeoutChange: (Int) -> Unit,
+) {
+    var text by remember(timeoutMs) { mutableStateOf(timeoutMs.toString()) }
+
+    Column {
+        Text(
+            text = "トグル入力の自動確定",
+            style = MaterialTheme.typography.titleMedium,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "ケータイ打ち（トグル）で文字選択後、入力が止まってから自動で確定するまでの時間です。",
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        OutlinedTextField(
+            value = text,
+            onValueChange = { input ->
+                val filtered = input.filter { it.isDigit() }
+                text = filtered
+                if (filtered.isNotEmpty()) {
+                    onTimeoutChange(filtered.toInt())
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("タイムアウト (ms)") },
+            supportingText = {
+                Text("0で無効。デフォルト: ${SettingsRepository.DEFAULT_TOGGLE_AUTO_COMMIT_TIMEOUT_MS}ms")
+            },
+            singleLine = true,
         )
     }
 }

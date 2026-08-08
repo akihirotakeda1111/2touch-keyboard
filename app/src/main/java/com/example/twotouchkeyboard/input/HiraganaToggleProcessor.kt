@@ -91,6 +91,7 @@ class HiraganaToggleProcessor(
         pendingChar = chars[activeIndex].toString()
         refreshComposingPreview()
         host.onProcessorStateChanged()
+        scheduleToggleAutoCommit()
     }
 
     companion object {
