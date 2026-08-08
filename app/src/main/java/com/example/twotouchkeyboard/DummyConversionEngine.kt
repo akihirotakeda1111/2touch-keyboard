@@ -5,6 +5,7 @@ import android.util.Log
 import com.example.mozcengine.ConversionEngine
 import com.example.mozcengine.ConversionMode
 import com.example.mozcengine.MozcConversionEngine
+import com.example.mozcengine.MozcSession
 import com.example.mozcengine.AlphabetPredictionSupport
 import kotlinx.coroutines.delay
 
@@ -13,8 +14,15 @@ object ConversionEngineProvider {
 
     fun create(context: Context): ConversionEngine {
         MozcConversionEngine.tryCreate(context)?.let { engine ->
-            Log.i(TAG, "Using Mozc conversion engine")
-            return engine
+            if (MozcSession.hasDictionaryData(context.applicationContext)) {
+                Log.i(
+                    TAG,
+                    "Using Mozc conversion engine (dataVersion=${MozcSession.getDataVersion()})",
+                )
+                return engine
+            }
+            Log.w(TAG, "Mozc dictionary unavailable; falling back to dummy conversion engine")
+            engine.close()
         }
         Log.i(TAG, "Falling back to dummy conversion engine")
         return DummyConversionEngine()
@@ -44,6 +52,8 @@ class DummyConversionEngine : ConversionEngine {
     }
 
     override fun close() = Unit
+
+    override fun resetSession() = Unit
 
     private fun lookupHiraganaCandidates(input: String): List<String> {
         CANDIDATE_MAP[input]?.let { return it }

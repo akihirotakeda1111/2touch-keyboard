@@ -17,5 +17,7 @@ interface ConversionEngine {
 
     suspend fun convert(input: String, mode: ConversionMode): List<String>
 
+    fun resetSession()
+
     fun close()
 }

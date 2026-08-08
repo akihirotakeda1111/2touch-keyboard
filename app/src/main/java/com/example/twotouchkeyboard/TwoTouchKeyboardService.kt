@@ -495,6 +495,9 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
 
     private fun resetConversionState() {
         conversionJob?.cancel()
+        if (::conversionEngine.isInitialized) {
+            conversionEngine.resetSession()
+        }
         conversionSession.clear()
         pendingConversionActivation = false
         lastComposingTextForConversion = ""
