@@ -5,7 +5,7 @@ package com.example.twotouchkeyboard
  *
  * - 入力中: 候補はプレビュー表示のみ
  * - 変換モード: 変換キーで候補を巡回、←→ で変換範囲（部分変換）を調整
- * - 確定: 候補バーから選択
+ * - 確定: 確定キーまたは候補バーから選択
  */
 class ConversionSession {
 

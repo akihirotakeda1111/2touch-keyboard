@@ -267,8 +267,10 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
 
     private fun handleEnterKey() {
         if (conversionSession.isActive) {
-            conversionSession.deactivate()
-            refreshConversionUi()
+            conversionSession.getSelectedCandidate()?.let { candidate ->
+                applyPartialConversion(candidate)
+                return
+            }
         }
         coordinator.onEnter()
     }
@@ -573,6 +575,9 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         }
         if (key == KeyboardKey.Space && shouldShowConversionKey()) {
             return getString(R.string.key_conversion)
+        }
+        if (key == KeyboardKey.Enter && conversionSession.isActive) {
+            return getString(R.string.key_confirm)
         }
         return coordinator.getKeyLabel(key)
     }
