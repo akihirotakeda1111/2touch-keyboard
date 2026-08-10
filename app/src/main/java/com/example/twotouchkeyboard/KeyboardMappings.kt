@@ -59,8 +59,8 @@ object KeyboardMappings {
     val alphabetExtensionRows: Map<Int, ExtensionSlots> = mapOf(
         0 to extensionRow("67890"),
         6 to extensionSlots(7 to '!', 8 to '?', 9 to '-', 0 to '/'),
-        7 to extensionSlots(7 to '&', 8 to ',', 9 to '.', 0 to '・'),
-        8 to extensionSlots(7 to ')', 8 to '*', 9 to '#', 0 to '$'),
+        7 to extensionSlots(6 to '¥', 7 to '&', 8 to ',', 9 to '.', 0 to '・'),
+        8 to extensionSlots(6 to '(', 7 to ')', 8 to '*', 9 to '#', 0 to '$'),
         9 to extensionRow("12345"),
     )
 

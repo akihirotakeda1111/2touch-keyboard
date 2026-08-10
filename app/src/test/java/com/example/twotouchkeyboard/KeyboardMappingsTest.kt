@@ -31,10 +31,26 @@ class KeyboardMappingsTest {
         assertNull(extensionChar(row = 2, secondKey = 6))
         assertEquals("!", extensionChar(row = 6, secondKey = 7))
         assertEquals("/", extensionChar(row = 6, secondKey = 0))
-        assertNull(extensionChar(row = 7, secondKey = 6))
+        assertEquals("¥", extensionChar(row = 7, secondKey = 6))
         assertEquals("&", extensionChar(row = 7, secondKey = 7))
+        assertEquals("(", extensionChar(row = 8, secondKey = 6))
+        assertEquals(")", extensionChar(row = 8, secondKey = 7))
         assertEquals("1", extensionChar(row = 9, secondKey = 6))
         assertEquals("5", extensionChar(row = 9, secondKey = 0))
+    }
+
+    @Test
+    fun appendFromSecondKey_supportsAlphabetRowSevenKeySix() {
+        var appended: String? = null
+        val appendedResult = TwoTouchExtensionSupport.appendFromSecondKey(
+            row = 7,
+            key = KeyboardKey.Digit(6),
+            primaryRows = KeyboardMappings.alphabetRows,
+            extensionRows = KeyboardMappings.alphabetExtensionRows,
+        ) { appended = it }
+
+        assertEquals(true, appendedResult)
+        assertEquals("¥", appended)
     }
 
     @Test
