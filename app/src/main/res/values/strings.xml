@@ -17,6 +17,7 @@
     <string name="key_text_modifier_alphabet">A/a</string>
     <string name="key_enter">↵</string>
     <string name="key_space">Space</string>
+    <string name="key_conversion">変換</string>
     <string name="key_cursor_left">←</string>
     <string name="key_cursor_right">→</string>
     <string name="conversion_hint_full">変換: %1$s</string>

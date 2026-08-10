@@ -4,8 +4,8 @@ package com.example.twotouchkeyboard
  * 変換候補の表示・選択状態を管理する。
  *
  * - 入力中: 候補はプレビュー表示のみ
- * - 変換モード: Space で開始、←→ で変換範囲（部分変換）を調整
- * - 確定: Space で変換部分を確定し、残りを引き続き変換対象にする
+ * - 変換モード: 変換キーで候補を巡回、←→ で変換範囲（部分変換）を調整
+ * - 確定: 候補バーから選択
  */
 class ConversionSession {
 
@@ -81,5 +81,10 @@ class ConversionSession {
         }
         conversionEnd = (conversionEnd + delta).coerceIn(1, composingLength)
         selectedIndex = 0
+    }
+
+    fun selectNextCandidate() {
+        if (candidates.isEmpty()) return
+        selectedIndex = (selectedIndex + 1) % candidates.size
     }
 }
