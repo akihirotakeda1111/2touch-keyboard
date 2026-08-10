@@ -253,25 +253,24 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     }
 
     private fun handleSpaceKey() {
-        if (canStartPredictionConversion()) {
-            if (conversionSession.isActive) {
-                conversionSession.getSelectedCandidate()?.let { applyPartialConversion(it) }
-                return
-            }
-            if (coordinator.getInputMode() == InputMode.HIRAGANA ||
-                conversionSession.getCandidates().isNotEmpty()
-            ) {
+        if (shouldShowConversionKey()) {
+            if (!conversionSession.isActive) {
                 enterConversionMode()
                 return
             }
+            conversionSession.selectNextCandidate()
+            refreshConversionUi()
+            return
         }
         coordinator.onSpace()
     }
 
     private fun handleEnterKey() {
         if (conversionSession.isActive) {
-            conversionSession.deactivate()
-            refreshConversionUi()
+            conversionSession.getSelectedCandidate()?.let { candidate ->
+                applyPartialConversion(candidate)
+                return
+            }
         }
         coordinator.onEnter()
     }
@@ -306,6 +305,10 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
             isPredictionConversionMode() &&
             coordinator.getComposingText().isNotEmpty() &&
             !coordinator.isMidCharacterInput()
+    }
+
+    private fun shouldShowConversionKey(): Boolean {
+        return canStartPredictionConversion() && conversionSession.getCandidates().isNotEmpty()
     }
 
     private fun enterConversionMode() {
@@ -517,6 +520,9 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         conversionHint.isVisible = false
         candidateContainer.removeAllViews()
         candidateScroll.visibility = View.GONE
+        if (keyButtons.isNotEmpty()) {
+            updateKeyLabels()
+        }
     }
 
     private fun applyPartialConversion(candidate: String) {
@@ -566,6 +572,12 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         }
         if (key == KeyboardKey.TextModifier) {
             return coordinator.getTextModifierLabel()
+        }
+        if (key == KeyboardKey.Space && shouldShowConversionKey()) {
+            return getString(R.string.key_conversion)
+        }
+        if (key == KeyboardKey.Enter && conversionSession.isActive) {
+            return getString(R.string.key_confirm)
         }
         return coordinator.getKeyLabel(key)
     }
