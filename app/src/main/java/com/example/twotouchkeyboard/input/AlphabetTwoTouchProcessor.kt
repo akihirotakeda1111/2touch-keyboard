@@ -17,21 +17,15 @@ class AlphabetTwoTouchProcessor(
     override fun onKeyPressed(key: KeyboardKey) {
         when (state) {
             State.IDLE -> handleIdle(key)
-            State.WAITING_VOWEL -> handleWaitingVowel(key)
+            State.WAITING_VOWEL -> handleWaitingSecondKey(key)
         }
     }
 
     override fun getKeyLabel(key: KeyboardKey): String {
         return when (key) {
-            is KeyboardKey.Digit -> getTwoTouchDigitLabel(
-                number = key.number,
-                waiting = state == State.WAITING_VOWEL,
-                activeChars = activeRow?.let { selectableCharacters(it) },
-                idleHeadLabels = KeyboardMappings.alphabetRowHeadLabels,
-                validIdleRange = 2..9,
-            )
+            is KeyboardKey.Digit -> labelForDigit(key.number)
+            KeyboardKey.Zero -> labelForZero()
             KeyboardKey.Star -> MODE_LABEL
-            KeyboardKey.Zero -> "0"
             KeyboardKey.Hash -> "#"
             else -> super.getKeyLabel(key)
         }
@@ -66,28 +60,62 @@ class AlphabetTwoTouchProcessor(
                 state = State.WAITING_VOWEL
                 host.onProcessorStateChanged()
             }
-            else -> Unit
-        }
-    }
-
-    private fun handleWaitingVowel(key: KeyboardKey) {
-        when (key) {
-            is KeyboardKey.Digit -> {
-                val row = activeRow ?: return
-                val chars = selectableCharacters(row) ?: return
-                if (key.number !in 1..chars.length) return
-                val index = key.number - 1
-                host.appendConfirmedCharacter(chars[index].toString())
-                state = State.IDLE
-                activeRow = null
+            KeyboardKey.Zero -> {
+                activeRow = 0
+                state = State.WAITING_VOWEL
                 host.onProcessorStateChanged()
             }
             else -> Unit
         }
     }
 
-    private fun selectableCharacters(row: Int): String? {
-        return KeyboardMappings.alphabetRows[row]
+    private fun handleWaitingSecondKey(key: KeyboardKey) {
+        val row = activeRow ?: return
+        val appended = TwoTouchExtensionSupport.appendFromSecondKey(
+            row = row,
+            key = key,
+            primaryRows = KeyboardMappings.alphabetRows,
+            extensionRows = KeyboardMappings.alphabetExtensionRows,
+            append = host::appendConfirmedCharacter,
+        )
+        if (appended) {
+            state = State.IDLE
+            activeRow = null
+            host.onProcessorStateChanged()
+        }
+    }
+
+    private fun labelForDigit(number: Int): String {
+        if (state == State.WAITING_VOWEL) {
+            activeRow?.let { row ->
+                TwoTouchExtensionSupport.waitingLabel(
+                    row = row,
+                    key = KeyboardKey.Digit(number),
+                    primaryRows = KeyboardMappings.alphabetRows,
+                    extensionRows = KeyboardMappings.alphabetExtensionRows,
+                )?.let { return it }
+            }
+        }
+
+        if (number !in 2..9) return number.toString()
+        val head = KeyboardMappings.alphabetRowHeadLabels[number] ?: return number.toString()
+        return "$number\n$head"
+    }
+
+    private fun labelForZero(): String {
+        if (state == State.WAITING_VOWEL) {
+            activeRow?.let { row ->
+                TwoTouchExtensionSupport.waitingLabel(
+                    row = row,
+                    key = KeyboardKey.Zero,
+                    primaryRows = KeyboardMappings.alphabetRows,
+                    extensionRows = KeyboardMappings.alphabetExtensionRows,
+                )?.let { return it }
+            }
+        }
+
+        val head = KeyboardMappings.alphabetExtensionHeadLabels[0] ?: "0"
+        return "0\n$head"
     }
 
     private fun toggleCase(char: Char): Char {
