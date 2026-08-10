@@ -214,8 +214,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         if (coordinator.isMidCharacterInput()) return false
 
         if (conversionSession.isActive) {
-            return key is KeyboardKey.Digit ||
-                key == KeyboardKey.Space ||
+            return key == KeyboardKey.Space ||
                 key == KeyboardKey.Enter ||
                 key == KeyboardKey.Delete ||
                 key == KeyboardKey.CursorLeft ||
@@ -231,12 +230,6 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         return when (key) {
             KeyboardKey.Space -> {
                 handleSpaceKey()
-                true
-            }
-            is KeyboardKey.Digit -> {
-                if (!conversionSession.isActive) return false
-                val candidate = conversionSession.candidateForDigit(key.number) ?: return false
-                applyPartialConversion(candidate)
                 true
             }
             KeyboardKey.Enter -> {
@@ -471,14 +464,13 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
 
         val inflater = LayoutInflater.from(this)
         val selectedIndex = conversionSession.getSelectedIndex()
-        val showShortcuts = conversionSession.isActive
 
         candidates.forEachIndexed { index, candidate ->
             val itemView = inflater.inflate(R.layout.suggest_item, candidateContainer, false)
             val textView = itemView.findViewById<TextView>(R.id.candidate_text)
-            textView.text = formatCandidateLabel(candidate, index, showShortcuts)
+            textView.text = candidate
 
-            if (showShortcuts && index == selectedIndex) {
+            if (conversionSession.isActive && index == selectedIndex) {
                 itemView.setBackgroundColor(
                     ContextCompat.getColor(this, R.color.candidate_selected_background),
                 )
@@ -504,11 +496,6 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
 
         candidateScroll.visibility = View.VISIBLE
         scrollToSelectedCandidate(selectedIndex)
-    }
-
-    private fun formatCandidateLabel(candidate: String, index: Int, showShortcuts: Boolean): String {
-        if (!showShortcuts || index >= MAX_CANDIDATE_SHORTCUTS) return candidate
-        return "${index + 1}. $candidate"
     }
 
     private fun scrollToSelectedCandidate(selectedIndex: Int) {
@@ -580,17 +567,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         if (key == KeyboardKey.TextModifier) {
             return coordinator.getTextModifierLabel()
         }
-        if (conversionSession.isActive && key is KeyboardKey.Digit && key.number in 1..9) {
-            val candidate = conversionSession.candidateForDigit(key.number)
-            if (candidate != null) {
-                return "${key.number}\n${abbreviateCandidate(candidate)}"
-            }
-        }
         return coordinator.getKeyLabel(key)
-    }
-
-    private fun abbreviateCandidate(candidate: String): String {
-        return if (candidate.length <= 4) candidate else candidate.take(3) + "…"
     }
 
     private fun finalizeInputState() {
@@ -698,7 +675,6 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     }
 
     companion object {
-        private const val MAX_CANDIDATE_SHORTCUTS = 9
         private const val INDEX_MAIN_KEYBOARD = 0
         private const val INDEX_SYMBOL_KEYBOARD = 1
 
