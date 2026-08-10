@@ -52,7 +52,7 @@ class KeyboardMappingsTest {
     }
 
     private fun charAt(
-        rows: Map<Int, KeyboardMappings.ExtensionSlots>,
+        rows: Map<Int, ExtensionSlots>,
         row: Int,
         secondKey: Int,
     ): String? {

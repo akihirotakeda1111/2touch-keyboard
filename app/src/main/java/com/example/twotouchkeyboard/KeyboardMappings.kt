@@ -5,6 +5,10 @@ package com.example.twotouchkeyboard
  *
  * 第1タッチが 0 のときは [KeyboardKey.Zero] を、第2タッチが 0 のときはキー番号 0 で参照する。
  */
+
+/** 第2タッチキー (6,7,8,9,0) → 文字 */
+typealias ExtensionSlots = Map<Int, Char>
+
 object KeyboardMappings {
     val hiraganaRows: Map<Int, String> = mapOf(
         1 to "あいうえお",
@@ -38,9 +42,6 @@ object KeyboardMappings {
     val alphabetRowHeadLabels: Map<Int, String> = alphabetRows.mapValues { (_, chars) ->
         chars.first().toString()
     }
-
-    /** 第2タッチキー (6,7,8,9,0) → 文字 */
-    typealias ExtensionSlots = Map<Int, Char>
 
     val hiraganaExtensionRows: Map<Int, ExtensionSlots> = mapOf(
         1 to extensionRow("ＡＢＣＤＥ"),

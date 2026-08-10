@@ -1,5 +1,6 @@
 package com.example.twotouchkeyboard.input
 
+import com.example.twotouchkeyboard.ExtensionSlots
 import com.example.twotouchkeyboard.KeyboardKey
 import com.example.twotouchkeyboard.KeyboardMappings
 
@@ -20,7 +21,7 @@ internal object TwoTouchExtensionSupport {
     fun resolveExtensionCharacter(
         row: Int,
         secondKey: Int,
-        extensionRows: Map<Int, KeyboardMappings.ExtensionSlots>,
+        extensionRows: Map<Int, ExtensionSlots>,
     ): String? {
         if (!KeyboardMappings.isExtensionSecondKey(secondKey)) return null
         return extensionRows[row]?.get(secondKey)?.toString()
@@ -30,7 +31,7 @@ internal object TwoTouchExtensionSupport {
         row: Int,
         key: KeyboardKey,
         primaryRows: Map<Int, String>,
-        extensionRows: Map<Int, KeyboardMappings.ExtensionSlots>,
+        extensionRows: Map<Int, ExtensionSlots>,
     ): String? {
         val secondKey = KeyboardMappings.secondKeyNumber(key) ?: return null
         return resolvePrimaryCharacter(row, secondKey, primaryRows)
@@ -41,7 +42,7 @@ internal object TwoTouchExtensionSupport {
         row: Int,
         key: KeyboardKey,
         primaryRows: Map<Int, String>,
-        extensionRows: Map<Int, KeyboardMappings.ExtensionSlots>,
+        extensionRows: Map<Int, ExtensionSlots>,
         append: (String) -> Unit,
     ): Boolean {
         val secondKey = KeyboardMappings.secondKeyNumber(key) ?: return false
