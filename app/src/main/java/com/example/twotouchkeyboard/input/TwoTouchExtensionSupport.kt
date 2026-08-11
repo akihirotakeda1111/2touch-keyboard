@@ -10,8 +10,9 @@ internal object TwoTouchExtensionSupport {
         row: Int,
         secondKey: Int,
         primaryRows: Map<Int, String>,
+        maxSecondKey: Int = 5,
     ): String? {
-        if (secondKey !in 1..5) return null
+        if (secondKey !in 1..maxSecondKey) return null
         val chars = primaryRows[row] ?: return null
         val index = secondKey - 1
         if (index >= chars.length) return null
@@ -32,10 +33,18 @@ internal object TwoTouchExtensionSupport {
         key: KeyboardKey,
         primaryRows: Map<Int, String>,
         extensionRows: Map<Int, ExtensionSlots>,
+        maxPrimarySecondKey: Int = 5,
+        preferExtensionOnConflict: Boolean = false,
     ): String? {
         val secondKey = KeyboardMappings.secondKeyNumber(key) ?: return null
-        return resolvePrimaryCharacter(row, secondKey, primaryRows)
-            ?: resolveExtensionCharacter(row, secondKey, extensionRows)
+        return resolveSecondTouchCharacter(
+            row = row,
+            secondKey = secondKey,
+            primaryRows = primaryRows,
+            extensionRows = extensionRows,
+            maxPrimarySecondKey = maxPrimarySecondKey,
+            preferExtensionOnConflict = preferExtensionOnConflict,
+        )
     }
 
     fun appendFromSecondKey(
@@ -44,12 +53,35 @@ internal object TwoTouchExtensionSupport {
         primaryRows: Map<Int, String>,
         extensionRows: Map<Int, ExtensionSlots>,
         append: (String) -> Unit,
+        maxPrimarySecondKey: Int = 5,
+        preferExtensionOnConflict: Boolean = false,
     ): Boolean {
         val secondKey = KeyboardMappings.secondKeyNumber(key) ?: return false
-        val character = resolvePrimaryCharacter(row, secondKey, primaryRows)
-            ?: resolveExtensionCharacter(row, secondKey, extensionRows)
-            ?: return false
+        val character = resolveSecondTouchCharacter(
+            row = row,
+            secondKey = secondKey,
+            primaryRows = primaryRows,
+            extensionRows = extensionRows,
+            maxPrimarySecondKey = maxPrimarySecondKey,
+            preferExtensionOnConflict = preferExtensionOnConflict,
+        ) ?: return false
         append(character)
         return true
+    }
+
+    private fun resolveSecondTouchCharacter(
+        row: Int,
+        secondKey: Int,
+        primaryRows: Map<Int, String>,
+        extensionRows: Map<Int, ExtensionSlots>,
+        maxPrimarySecondKey: Int,
+        preferExtensionOnConflict: Boolean,
+    ): String? {
+        val extension = resolveExtensionCharacter(row, secondKey, extensionRows)
+        val primary = resolvePrimaryCharacter(row, secondKey, primaryRows, maxPrimarySecondKey)
+        if (extension != null && primary != null && preferExtensionOnConflict) {
+            return extension
+        }
+        return primary ?: extension
     }
 }

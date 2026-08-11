@@ -13,19 +13,12 @@ class AlphabetToggleProcessor(
     override fun onKeyPressed(key: KeyboardKey) {
         when (key) {
             is KeyboardKey.Digit -> {
-                if (key.number !in 2..9) return
-                val chars = selectableCharacters(key.number) ?: return
-                if (activeRow == key.number) {
-                    activeIndex = (activeIndex + 1) % chars.length
-                } else {
-                    confirmPendingInput()
-                    activeRow = key.number
-                    activeIndex = 0
-                }
-                pendingChar = chars[activeIndex].toString()
-                refreshComposingPreview()
-                host.onProcessorStateChanged()
-                scheduleToggleAutoCommit()
+                if (key.number !in 1..9) return
+                val chars = KeyboardMappings.alphabetRows[key.number] ?: return
+                handleToggle(row = key.number, chars = chars)
+            }
+            KeyboardKey.Zero -> {
+                handleToggle(row = DIGIT_ROW, chars = KeyboardMappings.alphabetToggleDigitRow)
             }
             else -> Unit
         }
@@ -35,7 +28,7 @@ class AlphabetToggleProcessor(
         return when (key) {
             is KeyboardKey.Digit -> {
                 val rowChars = if (activeRow == key.number) {
-                    selectableCharacters(key.number)
+                    KeyboardMappings.alphabetRows[key.number]
                 } else {
                     null
                 }
@@ -43,11 +36,17 @@ class AlphabetToggleProcessor(
                     number = key.number,
                     rowChars = rowChars,
                     idleHeadLabels = KeyboardMappings.alphabetRowHeadLabels,
-                    validIdleRange = 2..9,
+                    validIdleRange = 1..9,
                 )
             }
             KeyboardKey.Star -> MODE_LABEL
-            KeyboardKey.Zero -> "0"
+            KeyboardKey.Zero -> {
+                if (activeRow == DIGIT_ROW) {
+                    KeyboardMappings.alphabetToggleDigitRow
+                } else {
+                    "0"
+                }
+            }
             KeyboardKey.Hash -> "#"
             else -> super.getKeyLabel(key)
         }
@@ -94,8 +93,18 @@ class AlphabetToggleProcessor(
         host.onProcessorStateChanged()
     }
 
-    private fun selectableCharacters(row: Int): String? {
-        return KeyboardMappings.alphabetRows[row]
+    private fun handleToggle(row: Int, chars: String) {
+        if (activeRow == row) {
+            activeIndex = (activeIndex + 1) % chars.length
+        } else {
+            confirmPendingInput()
+            activeRow = row
+            activeIndex = 0
+        }
+        pendingChar = chars[activeIndex].toString()
+        refreshComposingPreview()
+        host.onProcessorStateChanged()
+        scheduleToggleAutoCommit()
     }
 
     private fun toggleCase(char: Char): Char {
@@ -104,5 +113,6 @@ class AlphabetToggleProcessor(
 
     companion object {
         private const val MODE_LABEL = "A"
+        private const val DIGIT_ROW = 0
     }
 }

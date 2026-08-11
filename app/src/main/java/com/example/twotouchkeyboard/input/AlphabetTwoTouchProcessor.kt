@@ -55,7 +55,7 @@ class AlphabetTwoTouchProcessor(
     private fun handleIdle(key: KeyboardKey) {
         when (key) {
             is KeyboardKey.Digit -> {
-                if (key.number !in 2..9) return
+                if (key.number !in 1..9) return
                 activeRow = key.number
                 state = State.WAITING_VOWEL
                 host.onProcessorStateChanged()
@@ -77,6 +77,8 @@ class AlphabetTwoTouchProcessor(
             primaryRows = KeyboardMappings.alphabetRows,
             extensionRows = KeyboardMappings.alphabetExtensionRows,
             append = host::appendConfirmedCharacter,
+            maxPrimarySecondKey = 6,
+            preferExtensionOnConflict = true,
         )
         if (appended) {
             state = State.IDLE
@@ -88,34 +90,36 @@ class AlphabetTwoTouchProcessor(
     private fun labelForDigit(number: Int): String {
         if (state == State.WAITING_VOWEL) {
             activeRow?.let { row ->
-                TwoTouchExtensionSupport.waitingLabel(
+                return TwoTouchExtensionSupport.waitingLabel(
                     row = row,
                     key = KeyboardKey.Digit(number),
                     primaryRows = KeyboardMappings.alphabetRows,
                     extensionRows = KeyboardMappings.alphabetExtensionRows,
-                )?.let { return it }
+                    maxPrimarySecondKey = 6,
+                    preferExtensionOnConflict = true,
+                ).orEmpty()
             }
         }
 
-        if (number !in 2..9) return number.toString()
-        val head = KeyboardMappings.alphabetRowHeadLabels[number] ?: return number.toString()
-        return "$number\n$head"
+        if (number !in 1..9) return number.toString()
+        return KeyboardMappings.alphabetTwoTouchIdleLabel(number) ?: number.toString()
     }
 
     private fun labelForZero(): String {
         if (state == State.WAITING_VOWEL) {
             activeRow?.let { row ->
-                TwoTouchExtensionSupport.waitingLabel(
+                return TwoTouchExtensionSupport.waitingLabel(
                     row = row,
                     key = KeyboardKey.Zero,
                     primaryRows = KeyboardMappings.alphabetRows,
                     extensionRows = KeyboardMappings.alphabetExtensionRows,
-                )?.let { return it }
+                    maxPrimarySecondKey = 6,
+                    preferExtensionOnConflict = true,
+                ).orEmpty()
             }
         }
 
-        val head = KeyboardMappings.alphabetExtensionHeadLabels[0] ?: "0"
-        return "0\n$head"
+        return "0"
     }
 
     private fun toggleCase(char: Char): Char {

@@ -135,7 +135,7 @@ abstract class BaseInputProcessor(
 
         if (number !in validIdleRange) return number.toString()
         val head = idleHeadLabels[number] ?: return number.toString()
-        return "$number\n$head"
+        return head
     }
 
     protected fun getToggleDigitLabel(
@@ -147,7 +147,7 @@ abstract class BaseInputProcessor(
         if (number !in validIdleRange) return number.toString()
         rowChars?.let { return it }
         val head = idleHeadLabels[number] ?: return number.toString()
-        return "$number\n$head"
+        return head
     }
 
     protected fun getSymbolToggleLabel(): String = KeyboardMappings.symbolRow

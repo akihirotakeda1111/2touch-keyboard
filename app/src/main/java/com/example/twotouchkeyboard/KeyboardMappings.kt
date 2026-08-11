@@ -11,6 +11,7 @@ typealias ExtensionSlots = Map<Int, Char>
 
 object KeyboardMappings {
     val hiraganaRows: Map<Int, String> = mapOf(
+        0 to "わをん",
         1 to "あいうえお",
         2 to "かきくけこ",
         3 to "さしすせそ",
@@ -19,18 +20,19 @@ object KeyboardMappings {
         6 to "はひふへほ",
         7 to "まみむめも",
         8 to "やゆよ",
-        9 to "わをん",
+        9 to "らりるれろ",
     )
 
     val alphabetRows: Map<Int, String> = mapOf(
-        2 to "abcABC",
-        3 to "defDEF",
-        4 to "ghiGHI",
-        5 to "jklJKL",
-        6 to "mnoMNO",
-        7 to "pqrsPQRS",
-        8 to "tuvTUV",
-        9 to "wxyzWXYZ",
+        1 to "abc",
+        2 to "def",
+        3 to "ghi",
+        4 to "jkl",
+        5 to "mno",
+        6 to "pqr",
+        7 to "stu",
+        8 to "vwx",
+        9 to "yz",
     )
 
     const val symbolRow: String = "、。？！・"
@@ -64,13 +66,12 @@ object KeyboardMappings {
         9 to extensionRow("12345"),
     )
 
-    val hiraganaExtensionHeadLabels: Map<Int, String> = hiraganaExtensionRows.mapValues { (_, slots) ->
-        slots[6]?.toString() ?: ""
-    }
+    /** 英字トグル入力の 0 キー用数字列 */
+    const val alphabetToggleDigitRow: String = "0123456789"
 
-    val alphabetExtensionHeadLabels: Map<Int, String> = mapOf(
-        0 to "6",
-    )
+    fun alphabetTwoTouchIdleLabel(row: Int): String? {
+        return alphabetRows[row]
+    }
 
     fun secondKeyNumber(key: KeyboardKey): Int? {
         return when (key) {
