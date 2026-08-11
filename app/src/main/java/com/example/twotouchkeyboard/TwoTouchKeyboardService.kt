@@ -11,7 +11,10 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.ViewFlipper
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
+import androidx.core.view.updatePadding
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
@@ -86,6 +89,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
 
     override fun onCreateInputView(): View {
         val keyboardView = layoutInflater.inflate(R.layout.keyboard_view, null)
+        applyNavigationBarPadding(keyboardView)
         keyboardView.layoutParams = ViewGroup.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -153,6 +157,17 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         updateKeyLabels()
         showMainKeyboard()
         return keyboardView
+    }
+
+    private fun applyNavigationBarPadding(view: View) {
+        val basePaddingBottom = view.paddingBottom
+        ViewCompat.setOnApplyWindowInsetsListener(view) { target, windowInsets ->
+            val navigationBarInset =
+                windowInsets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
+            target.updatePadding(bottom = basePaddingBottom + navigationBarInset)
+            windowInsets
+        }
+        ViewCompat.requestApplyInsets(view)
     }
 
     private fun bindSymbolKeyboard(root: View) {
