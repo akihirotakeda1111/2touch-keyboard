@@ -88,8 +88,7 @@ class HiraganaTwoTouchProcessor(
         }
 
         if (number !in 1..9) return number.toString()
-        val head = KeyboardMappings.hiraganaRowHeadLabels[number] ?: return number.toString()
-        return "$number\n$head"
+        return KeyboardMappings.hiraganaRowHeadLabels[number] ?: number.toString()
     }
 
     private fun labelForZero(): String {
@@ -106,8 +105,7 @@ class HiraganaTwoTouchProcessor(
             }
         }
 
-        val head = KeyboardMappings.hiraganaExtensionHeadLabels[0] ?: "0"
-        return "0\n$head"
+        return KeyboardMappings.hiraganaRowHeadLabels[0] ?: "わ"
     }
 
     private fun transitionTo(newState: State, activeRow: ActiveRow?) {

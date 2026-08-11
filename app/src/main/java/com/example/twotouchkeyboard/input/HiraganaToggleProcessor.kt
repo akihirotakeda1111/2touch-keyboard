@@ -20,6 +20,9 @@ class HiraganaToggleProcessor(
                 if (key.number !in 1..9) return
                 handleToggle(ActiveKey.Hiragana(key.number), KeyboardMappings.hiraganaRows[key.number] ?: return)
             }
+            KeyboardKey.Zero -> {
+                handleToggle(ActiveKey.Hiragana(0), KeyboardMappings.hiraganaRows[0] ?: return)
+            }
             else -> Unit
         }
     }
@@ -41,8 +44,17 @@ class HiraganaToggleProcessor(
                     validIdleRange = 1..9,
                 )
             }
+            KeyboardKey.Zero -> {
+                val rowChars = if (activeKey is ActiveKey.Hiragana &&
+                    (activeKey as ActiveKey.Hiragana).row == 0
+                ) {
+                    KeyboardMappings.hiraganaRows[0]
+                } else {
+                    null
+                }
+                rowChars ?: KeyboardMappings.hiraganaRowHeadLabels[0] ?: "わ"
+            }
             KeyboardKey.Star -> MODE_LABEL
-            KeyboardKey.Zero -> "0"
             else -> super.getKeyLabel(key)
         }
     }

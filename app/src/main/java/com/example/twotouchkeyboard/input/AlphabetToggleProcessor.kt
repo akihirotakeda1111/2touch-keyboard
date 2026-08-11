@@ -13,7 +13,7 @@ class AlphabetToggleProcessor(
     override fun onKeyPressed(key: KeyboardKey) {
         when (key) {
             is KeyboardKey.Digit -> {
-                if (key.number !in 2..9) return
+                if (key.number !in 1..9) return
                 val chars = selectableCharacters(key.number) ?: return
                 if (activeRow == key.number) {
                     activeIndex = (activeIndex + 1) % chars.length
@@ -43,7 +43,7 @@ class AlphabetToggleProcessor(
                     number = key.number,
                     rowChars = rowChars,
                     idleHeadLabels = KeyboardMappings.alphabetRowHeadLabels,
-                    validIdleRange = 2..9,
+                    validIdleRange = 1..9,
                 )
             }
             KeyboardKey.Star -> MODE_LABEL
