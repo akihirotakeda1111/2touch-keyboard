@@ -47,26 +47,9 @@ class KeyboardMappingsTest {
     }
 
     @Test
-    fun shouldShowNumericSecondKeyLabel_forNineAndZeroRowsOnly() {
-        assertEquals(true, KeyboardMappings.shouldShowNumericSecondKeyLabel(9, 6))
-        assertEquals(true, KeyboardMappings.shouldShowNumericSecondKeyLabel(0, 0))
-        assertEquals(false, KeyboardMappings.shouldShowNumericSecondKeyLabel(1, 6))
-        assertEquals(false, KeyboardMappings.shouldShowNumericSecondKeyLabel(9, 1))
-    }
-
-    @Test
-    fun numericSecondKeyLabel_mapsExtensionSlotsToDigits() {
-        assertEquals("1", KeyboardMappings.numericSecondKeyLabel(9, 6))
-        assertEquals("5", KeyboardMappings.numericSecondKeyLabel(9, 0))
-        assertEquals("6", KeyboardMappings.numericSecondKeyLabel(0, 6))
-        assertEquals("0", KeyboardMappings.numericSecondKeyLabel(0, 0))
-        assertNull(KeyboardMappings.numericSecondKeyLabel(1, 6))
-    }
-
-    @Test
-    fun waitingLabel_showsNumericLabelsForNineAndZeroExtensionKeys() {
+    fun waitingLabel_matchesExtensionInputForNineAndZeroRows() {
         assertEquals(
-            "1",
+            "１",
             TwoTouchExtensionSupport.waitingLabel(
                 row = 9,
                 key = KeyboardKey.Digit(6),
@@ -75,12 +58,34 @@ class KeyboardMappingsTest {
             ),
         )
         assertEquals(
-            "0",
+            "０",
             TwoTouchExtensionSupport.waitingLabel(
                 row = 0,
                 key = KeyboardKey.Zero,
                 primaryRows = KeyboardMappings.hiraganaRows,
                 extensionRows = KeyboardMappings.hiraganaExtensionRows,
+            ),
+        )
+        assertEquals(
+            "1",
+            TwoTouchExtensionSupport.waitingLabel(
+                row = 9,
+                key = KeyboardKey.Digit(6),
+                primaryRows = KeyboardMappings.alphabetRows,
+                extensionRows = KeyboardMappings.alphabetExtensionRows,
+                maxPrimarySecondKey = 6,
+                preferExtensionOnConflict = true,
+            ),
+        )
+        assertEquals(
+            "0",
+            TwoTouchExtensionSupport.waitingLabel(
+                row = 0,
+                key = KeyboardKey.Zero,
+                primaryRows = KeyboardMappings.alphabetRows,
+                extensionRows = KeyboardMappings.alphabetExtensionRows,
+                maxPrimarySecondKey = 6,
+                preferExtensionOnConflict = true,
             ),
         )
     }
