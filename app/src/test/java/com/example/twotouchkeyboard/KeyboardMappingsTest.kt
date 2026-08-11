@@ -55,9 +55,18 @@ class KeyboardMappingsTest {
     }
 
     @Test
+    fun numericSecondKeyLabel_mapsExtensionSlotsToDigits() {
+        assertEquals("1", KeyboardMappings.numericSecondKeyLabel(9, 6))
+        assertEquals("5", KeyboardMappings.numericSecondKeyLabel(9, 0))
+        assertEquals("6", KeyboardMappings.numericSecondKeyLabel(0, 6))
+        assertEquals("0", KeyboardMappings.numericSecondKeyLabel(0, 0))
+        assertNull(KeyboardMappings.numericSecondKeyLabel(1, 6))
+    }
+
+    @Test
     fun waitingLabel_showsNumericLabelsForNineAndZeroExtensionKeys() {
         assertEquals(
-            "6",
+            "1",
             TwoTouchExtensionSupport.waitingLabel(
                 row = 9,
                 key = KeyboardKey.Digit(6),

@@ -195,8 +195,12 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
                 }
             }
             KeyboardKey.TextModifier -> {
-                coordinator.applyTextModifier()
-                updateKeyLabels()
+                if (coordinator.getInputMode() == InputMode.NUMBER) {
+                    coordinator.onKeyPressed(key)
+                } else {
+                    coordinator.applyTextModifier()
+                    updateKeyLabels()
+                }
             }
             KeyboardKey.Delete -> handleDeleteKey()
             KeyboardKey.Enter -> handleEnterKey()

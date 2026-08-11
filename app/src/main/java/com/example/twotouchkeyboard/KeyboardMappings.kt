@@ -77,6 +77,25 @@ object KeyboardMappings {
         return (activeRow == 9 || activeRow == 0) && isExtensionSecondKey(secondKey)
     }
 
+    /** 9行目は 1–5、0行目は 6–0 を第2タッチキー位置 (6–9, 0) に対応付けて表示する。 */
+    fun numericSecondKeyLabel(activeRow: Int, secondKey: Int): String? {
+        if (!shouldShowNumericSecondKeyLabel(activeRow, secondKey)) return null
+        val slotIndex = extensionSlotIndex(secondKey) ?: return null
+        val digit = (if (activeRow == 9) 1 else 6) + slotIndex
+        return digit.toString()
+    }
+
+    private fun extensionSlotIndex(secondKey: Int): Int? {
+        return when (secondKey) {
+            6 -> 0
+            7 -> 1
+            8 -> 2
+            9 -> 3
+            0 -> 4
+            else -> null
+        }
+    }
+
     fun secondKeyNumber(key: KeyboardKey): Int? {
         return when (key) {
             is KeyboardKey.Digit -> key.number

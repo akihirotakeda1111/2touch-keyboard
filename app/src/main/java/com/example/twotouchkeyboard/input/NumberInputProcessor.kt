@@ -11,6 +11,7 @@ class NumberInputProcessor(
             is KeyboardKey.Digit -> key.number.toString()
             KeyboardKey.Zero -> "0"
             KeyboardKey.Hash -> "#"
+            KeyboardKey.TextModifier -> "-"
             else -> return
         }
         host.commitDirectText(text)

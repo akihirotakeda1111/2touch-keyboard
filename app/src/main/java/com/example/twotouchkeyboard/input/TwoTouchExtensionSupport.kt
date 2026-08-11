@@ -37,9 +37,7 @@ internal object TwoTouchExtensionSupport {
         preferExtensionOnConflict: Boolean = false,
     ): String? {
         val secondKey = KeyboardMappings.secondKeyNumber(key) ?: return null
-        if (KeyboardMappings.shouldShowNumericSecondKeyLabel(row, secondKey)) {
-            return secondKey.toString()
-        }
+        KeyboardMappings.numericSecondKeyLabel(row, secondKey)?.let { return it }
         return resolveSecondTouchCharacter(
             row = row,
             secondKey = secondKey,
