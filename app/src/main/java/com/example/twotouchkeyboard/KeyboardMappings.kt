@@ -20,19 +20,19 @@ object KeyboardMappings {
         6 to "はひふへほ",
         7 to "まみむめも",
         8 to "やゆよ",
-        9 to "らをん",
+        9 to "らりるれろ",
     )
 
     val alphabetRows: Map<Int, String> = mapOf(
-        1 to "abcABC",
-        2 to "defDEF",
-        3 to "ghiGHI",
-        4 to "jklJKL",
-        5 to "mnoMNO",
-        6 to "pqrPQR",
-        7 to "stuSTU",
-        8 to "vwxVWX",
-        9 to "yzYZ",
+        1 to "abc",
+        2 to "def",
+        3 to "ghi",
+        4 to "jkl",
+        5 to "mno",
+        6 to "pqr",
+        7 to "stu",
+        8 to "vwx",
+        9 to "yz",
     )
 
     const val symbolRow: String = "、。？！・"
@@ -67,10 +67,7 @@ object KeyboardMappings {
     )
 
     fun alphabetTwoTouchIdleLabel(row: Int): String? {
-        val chars = alphabetRows[row] ?: return null
-        val half = chars.length / 2
-        if (half == 0) return null
-        return "${chars.substring(0, half)}\n${chars.substring(half)}"
+        return alphabetRows[row]
     }
 
     fun shouldShowNumericSecondKeyLabel(activeRow: Int, secondKey: Int): Boolean {

@@ -8,25 +8,25 @@ import org.junit.Test
 class KeyboardMappingsTest {
 
     @Test
-    fun hiraganaRows_assignRaToNineAndWaToZero() {
-        assertEquals("らをん", KeyboardMappings.hiraganaRows[9])
+    fun hiraganaRows_assignRaRiRuReRoToNineAndWaToZero() {
+        assertEquals("らりるれろ", KeyboardMappings.hiraganaRows[9])
         assertEquals("わをん", KeyboardMappings.hiraganaRows[0])
         assertEquals("ら", KeyboardMappings.hiraganaRowHeadLabels[9])
         assertEquals("わ", KeyboardMappings.hiraganaRowHeadLabels[0])
     }
 
     @Test
-    fun alphabetRows_useRowsOneThroughNine() {
-        assertEquals("abcABC", KeyboardMappings.alphabetRows[1])
-        assertEquals("pqrPQR", KeyboardMappings.alphabetRows[6])
-        assertEquals("yzYZ", KeyboardMappings.alphabetRows[9])
+    fun alphabetRows_useLowercaseOnly() {
+        assertEquals("abc", KeyboardMappings.alphabetRows[1])
+        assertEquals("pqr", KeyboardMappings.alphabetRows[6])
+        assertEquals("yz", KeyboardMappings.alphabetRows[9])
         assertNull(KeyboardMappings.alphabetRows[0])
     }
 
     @Test
-    fun alphabetTwoTouchIdleLabel_showsLowercaseAndUppercaseLines() {
-        assertEquals("abc\nABC", KeyboardMappings.alphabetTwoTouchIdleLabel(1))
-        assertEquals("yz\nYZ", KeyboardMappings.alphabetTwoTouchIdleLabel(9))
+    fun alphabetTwoTouchIdleLabel_showsLowercaseOnly() {
+        assertEquals("abc", KeyboardMappings.alphabetTwoTouchIdleLabel(1))
+        assertEquals("yz", KeyboardMappings.alphabetTwoTouchIdleLabel(9))
     }
 
     @Test
@@ -89,6 +89,22 @@ class KeyboardMappingsTest {
         assertEquals(")", extensionChar(row = 8, secondKey = 7))
         assertEquals("1", extensionChar(row = 9, secondKey = 6))
         assertEquals("5", extensionChar(row = 9, secondKey = 0))
+    }
+
+    @Test
+    fun appendFromSecondKey_supportsAlphabetRowSixKeyThree() {
+        var appended: String? = null
+        val appendedResult = TwoTouchExtensionSupport.appendFromSecondKey(
+            row = 6,
+            key = KeyboardKey.Digit(3),
+            primaryRows = KeyboardMappings.alphabetRows,
+            extensionRows = KeyboardMappings.alphabetExtensionRows,
+            maxPrimarySecondKey = 6,
+            preferExtensionOnConflict = true,
+        ) { appended = it }
+
+        assertEquals(true, appendedResult)
+        assertEquals("r", appended)
     }
 
     @Test
