@@ -88,11 +88,7 @@ class MozcSession private constructor(
     }
 
     fun clearUserHistory() {
-        evaluateGlobal(
-            Input.newBuilder()
-                .setType(Input.CommandType.CLEAR_USER_HISTORY)
-                .build(),
-        )
+        clearUserHistoryData()
     }
 
     fun deleteSession() {
@@ -290,9 +286,18 @@ class MozcSession private constructor(
 
         fun clearUserHistory(context: Context) {
             ensureMozcLoaded(context.applicationContext)
+            clearUserHistoryData()
+        }
+
+        private fun clearUserHistoryData() {
             evaluateGlobal(
                 Input.newBuilder()
                     .setType(Input.CommandType.CLEAR_USER_HISTORY)
+                    .build(),
+            )
+            evaluateGlobal(
+                Input.newBuilder()
+                    .setType(Input.CommandType.CLEAR_USER_PREDICTION)
                     .build(),
             )
         }
