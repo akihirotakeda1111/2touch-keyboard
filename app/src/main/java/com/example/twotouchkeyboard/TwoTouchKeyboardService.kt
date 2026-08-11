@@ -458,11 +458,6 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
             if (pendingConversionActivation && candidates.isNotEmpty()) {
                 conversionSession.activate(requestComposing.length)
                 pendingConversionActivation = false
-            } else if (
-                coordinator.getInputMode() == InputMode.ALPHABET &&
-                AlphabetPredictionSupport.hasConversionCandidates(candidates, requestComposing)
-            ) {
-                conversionSession.activate(requestComposing.length)
             }
             refreshConversionUi()
         }
