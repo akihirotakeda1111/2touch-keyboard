@@ -412,11 +412,9 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
 
     private fun updateComposingText(text: String) {
         val inputConnection = currentInputConnection ?: return
-        if (text.isEmpty()) {
-            inputConnection.finishComposingText()
-        } else {
-            inputConnection.setComposingText(text, 1)
-        }
+        // finishComposingText() commits the current composing span. When deleting the
+        // last character we must clear composing without committing it.
+        inputConnection.setComposingText(text, 1)
     }
 
     private fun requestConversion(
