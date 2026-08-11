@@ -14,6 +14,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: build-apk-${{ github.workflow }}-${{ github.ref }}
@@ -28,13 +29,60 @@ jobs:
       - name: Checkout project
         uses: actions/checkout@v4
 
+      - name: Find valid Mozc artifact
+        id: mozc-artifact
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const response = await github.rest.actions.listArtifactsForRepo({
+              owner,
+              repo,
+              name: "mozc-android",
+              per_page: 100,
+            });
+            const latest = response.data.artifacts
+              .filter((artifact) => !artifact.expired)
+              .sort(
+                (left, right) =>
+                  Date.parse(right.created_at) - Date.parse(left.created_at),
+              )[0];
+            if (!latest) {
+              core.setOutput("found", "false");
+              core.info("No valid mozc-android artifact found. Mozc will be built.");
+              return;
+            }
+            core.setOutput("found", "true");
+            core.setOutput("run-id", String(latest.workflow_run.id));
+            core.info(
+              `Using mozc-android from workflow run ${latest.workflow_run.id} ` +
+                `(created ${latest.created_at}, expires ${latest.expires_at}).`,
+            );
+
+      - name: Download Mozc artifact
+        if: steps.mozc-artifact.outputs.found == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: mozc-android
+          run-id: ${{ steps.mozc-artifact.outputs.run-id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: .
+
+      - name: Verify downloaded Mozc artifact
+        if: steps.mozc-artifact.outputs.found == 'true'
+        run: |
+          test -f mozc-engine/src/main/jniLibs/arm64-v8a/libmozc.so
+          test -f mozc-engine/src/main/assets/mozc.data
+
       - name: Checkout Mozc
+        if: steps.mozc-artifact.outputs.found != 'true'
         uses: actions/checkout@v4
         with:
           repository: google/mozc
           path: third_party/mozc
 
       - name: Install system dependencies
+        if: steps.mozc-artifact.outputs.found != 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential unzip
@@ -46,19 +94,23 @@ jobs:
           java-version: "17"
 
       - name: Install Bazelisk
+        if: steps.mozc-artifact.outputs.found != 'true'
         uses: bazelbuild/setup-bazelisk@v3
 
       - name: Restore Mozc dependency cache
+        if: steps.mozc-artifact.outputs.found != 'true'
         uses: actions/cache@v4
         with:
           path: third_party/mozc/src/third_party_cache
           key: mozc-update-deps-${{ runner.os }}-${{ hashFiles('third_party/mozc/src/build_tools/update_deps.py') }}
 
       - name: Download Mozc build dependencies
+        if: steps.mozc-artifact.outputs.found != 'true'
         working-directory: third_party/mozc/src
         run: python3 build_tools/update_deps.py
 
       - name: Build Mozc for Android
+        if: steps.mozc-artifact.outputs.found != 'true'
         env:
           SKIP_UPDATE_DEPS: "1"
         run: |
