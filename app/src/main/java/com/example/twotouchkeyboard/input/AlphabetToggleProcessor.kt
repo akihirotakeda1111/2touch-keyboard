@@ -72,9 +72,8 @@ class AlphabetToggleProcessor(
     }
 
     override fun resetPartialInput() {
-        confirmPendingInput()
-        activeRow = null
-        activeIndex = 0
+        clearToggleState()
+        refreshComposingPreview()
         host.onProcessorStateChanged()
     }
 

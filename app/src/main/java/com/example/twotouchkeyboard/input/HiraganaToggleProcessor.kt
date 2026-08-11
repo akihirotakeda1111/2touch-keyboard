@@ -66,9 +66,8 @@ class HiraganaToggleProcessor(
     }
 
     override fun resetPartialInput() {
-        confirmPendingInput()
-        activeKey = null
-        activeIndex = 0
+        clearToggleState()
+        refreshComposingPreview()
         host.onProcessorStateChanged()
     }
 

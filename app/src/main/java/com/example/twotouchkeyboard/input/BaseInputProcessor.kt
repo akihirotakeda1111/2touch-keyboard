@@ -33,6 +33,7 @@ abstract class BaseInputProcessor(
     }
 
     override fun onDelete(ic: InputConnection) {
+        host.cancelToggleAutoCommit()
         when {
             hasPartialTwoTouchInput() -> resetPartialInput()
             pendingChar != null -> {

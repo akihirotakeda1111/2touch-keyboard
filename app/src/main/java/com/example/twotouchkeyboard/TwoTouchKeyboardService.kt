@@ -299,7 +299,6 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
             conversionSession.deactivate()
             pendingConversionActivation = false
             refreshConversionUi()
-            return
         }
         coordinator.onDelete()
     }
