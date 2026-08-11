@@ -90,14 +90,14 @@ class AlphabetTwoTouchProcessor(
     private fun labelForDigit(number: Int): String {
         if (state == State.WAITING_VOWEL) {
             activeRow?.let { row ->
-                TwoTouchExtensionSupport.waitingLabel(
+                return TwoTouchExtensionSupport.waitingLabel(
                     row = row,
                     key = KeyboardKey.Digit(number),
                     primaryRows = KeyboardMappings.alphabetRows,
                     extensionRows = KeyboardMappings.alphabetExtensionRows,
                     maxPrimarySecondKey = 6,
                     preferExtensionOnConflict = true,
-                )?.let { return it }
+                ).orEmpty()
             }
         }
 
@@ -108,14 +108,14 @@ class AlphabetTwoTouchProcessor(
     private fun labelForZero(): String {
         if (state == State.WAITING_VOWEL) {
             activeRow?.let { row ->
-                TwoTouchExtensionSupport.waitingLabel(
+                return TwoTouchExtensionSupport.waitingLabel(
                     row = row,
                     key = KeyboardKey.Zero,
                     primaryRows = KeyboardMappings.alphabetRows,
                     extensionRows = KeyboardMappings.alphabetExtensionRows,
                     maxPrimarySecondKey = 6,
                     preferExtensionOnConflict = true,
-                )?.let { return it }
+                ).orEmpty()
             }
         }
 

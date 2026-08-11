@@ -77,12 +77,12 @@ class HiraganaTwoTouchProcessor(
         if (state == State.WAITING_VOWEL) {
             activeRow?.let { active ->
                 if (active is ActiveRow.Hiragana) {
-                    TwoTouchExtensionSupport.waitingLabel(
+                    return TwoTouchExtensionSupport.waitingLabel(
                         row = active.row,
                         key = KeyboardKey.Digit(number),
                         primaryRows = KeyboardMappings.hiraganaRows,
                         extensionRows = KeyboardMappings.hiraganaExtensionRows,
-                    )?.let { return it }
+                    ).orEmpty()
                 }
             }
         }
@@ -95,12 +95,12 @@ class HiraganaTwoTouchProcessor(
         if (state == State.WAITING_VOWEL) {
             activeRow?.let { active ->
                 if (active is ActiveRow.Hiragana) {
-                    TwoTouchExtensionSupport.waitingLabel(
+                    return TwoTouchExtensionSupport.waitingLabel(
                         row = active.row,
                         key = KeyboardKey.Zero,
                         primaryRows = KeyboardMappings.hiraganaRows,
                         extensionRows = KeyboardMappings.hiraganaExtensionRows,
-                    )?.let { return it }
+                    ).orEmpty()
                 }
             }
         }

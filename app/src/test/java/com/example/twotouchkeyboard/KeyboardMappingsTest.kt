@@ -30,6 +30,23 @@ class KeyboardMappingsTest {
     }
 
     @Test
+    fun waitingLabel_returnsNullForUnavailableSecondTouchKeys() {
+        assertNull(
+            TwoTouchExtensionSupport.waitingLabel(
+                row = 8,
+                key = KeyboardKey.Digit(4),
+                primaryRows = KeyboardMappings.hiraganaRows,
+                extensionRows = KeyboardMappings.hiraganaExtensionRows,
+            ),
+        )
+    }
+
+    @Test
+    fun alphabetToggleDigitRow_containsZeroThroughNine() {
+        assertEquals("0123456789", KeyboardMappings.alphabetToggleDigitRow)
+    }
+
+    @Test
     fun shouldShowNumericSecondKeyLabel_forNineAndZeroRowsOnly() {
         assertEquals(true, KeyboardMappings.shouldShowNumericSecondKeyLabel(9, 6))
         assertEquals(true, KeyboardMappings.shouldShowNumericSecondKeyLabel(0, 0))

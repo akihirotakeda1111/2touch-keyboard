@@ -66,6 +66,9 @@ object KeyboardMappings {
         9 to extensionRow("12345"),
     )
 
+    /** 英字トグル入力の 0 キー用数字列 */
+    const val alphabetToggleDigitRow: String = "0123456789"
+
     fun alphabetTwoTouchIdleLabel(row: Int): String? {
         return alphabetRows[row]
     }
