@@ -132,7 +132,8 @@ class KeyboardMappingsTest {
             extensionRows = KeyboardMappings.alphabetExtensionRows,
             maxPrimarySecondKey = 6,
             preferExtensionOnConflict = true,
-        ) { appended = it }
+            append = { appended = it },
+        )
 
         assertEquals(true, appendedResult)
         assertEquals("r", appended)
@@ -148,7 +149,8 @@ class KeyboardMappingsTest {
             extensionRows = KeyboardMappings.alphabetExtensionRows,
             maxPrimarySecondKey = 6,
             preferExtensionOnConflict = true,
-        ) { appended = it }
+            append = { appended = it },
+        )
 
         assertEquals(true, appendedResult)
         assertEquals("¥", appended)
@@ -162,7 +164,8 @@ class KeyboardMappingsTest {
             key = KeyboardKey.Zero,
             primaryRows = KeyboardMappings.hiraganaRows,
             extensionRows = KeyboardMappings.hiraganaExtensionRows,
-        ) { appended = it }
+            append = { appended = it },
+        )
 
         assertEquals(true, appendedResult)
         assertEquals("Ｅ", appended)

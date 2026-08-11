@@ -24,6 +24,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -36,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.twotouchkeyboard.candidate.CandidateUsageHistoryManager
 import kotlinx.coroutines.launch
 
 class SettingsActivity : ComponentActivity() {
@@ -59,6 +61,9 @@ class SettingsActivity : ComponentActivity() {
                         val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
                         imm.showInputMethodPicker()
                     },
+                    onClearCandidateUsageHistory = {
+                        CandidateUsageHistoryManager.clearAll(applicationContext)
+                    },
                 )
             }
         }
@@ -71,6 +76,7 @@ private fun SettingsScreen(
     onOpenInputTry: () -> Unit,
     onOpenImeSettings: () -> Unit,
     onOpenImePicker: () -> Unit,
+    onClearCandidateUsageHistory: () -> Unit,
 ) {
     val hiraganaMode by repository.hiraganaInputMode.collectAsStateWithLifecycle(
         initialValue = CharacterInputMethod.TWOTOUCH,
@@ -80,6 +86,9 @@ private fun SettingsScreen(
     )
     val toggleAutoCommitTimeoutMs by repository.toggleAutoCommitTimeoutMs.collectAsStateWithLifecycle(
         initialValue = SettingsRepository.DEFAULT_TOGGLE_AUTO_COMMIT_TIMEOUT_MS,
+    )
+    val candidateUsageLearningEnabled by repository.candidateUsageLearningEnabled.collectAsStateWithLifecycle(
+        initialValue = SettingsRepository.DEFAULT_CANDIDATE_USAGE_LEARNING_ENABLED,
     )
     val scope = rememberCoroutineScope()
 
@@ -123,6 +132,16 @@ private fun SettingsScreen(
                 onTimeoutChange = { timeoutMs ->
                     scope.launch { repository.setToggleAutoCommitTimeoutMs(timeoutMs) }
                 },
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            CandidateUsageLearningSection(
+                enabled = candidateUsageLearningEnabled,
+                onEnabledChange = { enabled ->
+                    scope.launch { repository.setCandidateUsageLearningEnabled(enabled) }
+                },
+                onClearHistory = onClearCandidateUsageHistory,
             )
 
             Spacer(modifier = Modifier.height(32.dp))
@@ -201,6 +220,47 @@ private fun InputMethodSection(
             selected = selected,
             onSelected = onSelected,
         )
+    }
+}
+
+@Composable
+private fun CandidateUsageLearningSection(
+    enabled: Boolean,
+    onEnabledChange: (Boolean) -> Unit,
+    onClearHistory: () -> Unit,
+) {
+    Column {
+        Text(
+            text = "変換候補の学習",
+            style = MaterialTheme.typography.titleMedium,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "よく使う変換候補を優先表示します。日本語は Mozc の履歴、英字は端末内の使用回数を利用します。",
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "使用頻度を学習する",
+                style = MaterialTheme.typography.bodyLarge,
+            )
+            Switch(
+                checked = enabled,
+                onCheckedChange = onEnabledChange,
+            )
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+        Button(
+            onClick = onClearHistory,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("学習した候補履歴を消去")
+        }
     }
 }
 

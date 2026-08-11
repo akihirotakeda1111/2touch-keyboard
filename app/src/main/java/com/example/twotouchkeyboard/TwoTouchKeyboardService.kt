@@ -21,6 +21,9 @@ import androidx.lifecycle.LifecycleRegistry
 import androidx.lifecycle.lifecycleScope
 import com.example.mozcengine.ConversionEngine
 import com.example.mozcengine.AlphabetPredictionSupport
+import com.example.twotouchkeyboard.candidate.CandidateLearningCoordinator
+import com.example.twotouchkeyboard.candidate.CandidateUsageContext
+import com.example.twotouchkeyboard.candidate.EnglishCandidateUsageStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -45,6 +48,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     private val keyButtons: MutableMap<KeyboardKey, Button> = mutableMapOf()
     private lateinit var keyboardFlipper: ViewFlipper
     private lateinit var conversionEngine: ConversionEngine
+    private lateinit var candidateLearningCoordinator: CandidateLearningCoordinator
 
     private val conversionScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var conversionJob: Job? = null
@@ -67,25 +71,38 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
 
         settingsRepository = SettingsRepository(applicationContext)
         conversionEngine = ConversionEngineProvider.create(applicationContext)
+        candidateLearningCoordinator = CandidateLearningCoordinator(
+            conversionEngine = conversionEngine,
+            englishUsageStore = EnglishCandidateUsageStore(applicationContext),
+        )
         settingsCollectJob = lifecycleScope.launch {
             combine(
                 settingsRepository.hiraganaInputMode,
                 settingsRepository.alphabetInputMode,
                 settingsRepository.toggleAutoCommitTimeoutMs,
-            ) { hiragana, alphabet, timeoutMs ->
-                Triple(hiragana, alphabet, timeoutMs)
-            }.collect { (hiragana, alphabet, timeoutMs) ->
-                currentHiraganaMethod = hiragana
-                currentAlphabetMethod = alphabet
-                toggleAutoCommitTimeoutMs = timeoutMs
+                settingsRepository.candidateUsageLearningEnabled,
+            ) { hiragana, alphabet, timeoutMs, usageLearningEnabled ->
+                SettingsSnapshot(hiragana, alphabet, timeoutMs, usageLearningEnabled)
+            }.collect { snapshot ->
+                currentHiraganaMethod = snapshot.hiraganaMethod
+                currentAlphabetMethod = snapshot.alphabetMethod
+                toggleAutoCommitTimeoutMs = snapshot.toggleAutoCommitTimeoutMs
+                candidateLearningCoordinator.learningEnabled = snapshot.candidateUsageLearningEnabled
                 if (::coordinator.isInitialized) {
-                    coordinator.setHiraganaInputMethod(hiragana)
-                    coordinator.setAlphabetInputMethod(alphabet)
+                    coordinator.setHiraganaInputMethod(snapshot.hiraganaMethod)
+                    coordinator.setAlphabetInputMethod(snapshot.alphabetMethod)
                     updateKeyLabels()
                 }
             }
         }
     }
+
+    private data class SettingsSnapshot(
+        val hiraganaMethod: CharacterInputMethod,
+        val alphabetMethod: CharacterInputMethod,
+        val toggleAutoCommitTimeoutMs: Int,
+        val candidateUsageLearningEnabled: Boolean,
+    )
 
     override fun onCreateInputView(): View {
         val keyboardView = layoutInflater.inflate(R.layout.keyboard_view, null)
@@ -454,8 +471,13 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
             } else {
                 rawCandidates
             }
-            conversionSession.setCandidates(candidates)
-            if (pendingConversionActivation && candidates.isNotEmpty()) {
+            val rankedCandidates = candidateLearningCoordinator.rank(
+                mode = coordinator.getInputMode(),
+                contextKey = target,
+                candidates = candidates,
+            )
+            conversionSession.setCandidates(rankedCandidates)
+            if (pendingConversionActivation && rankedCandidates.isNotEmpty()) {
                 conversionSession.activate(requestComposing.length)
                 pendingConversionActivation = false
             }
@@ -541,6 +563,8 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         val composing = coordinator.getComposingText()
         if (composing.isEmpty()) return
 
+        recordCandidateUsage(candidate, composing)
+
         val inputConnection = currentInputConnection ?: return
         val suffix = conversionSession.getRemainingSuffix(composing)
 
@@ -570,6 +594,18 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
             resetConversionState()
         }
         suppressConversionReset = false
+    }
+
+    private fun recordCandidateUsage(candidate: String, composing: String) {
+        if (!coordinator.isConversionEnabled()) return
+
+        candidateLearningCoordinator.recordCommit(
+            CandidateUsageContext(
+                mode = coordinator.getInputMode(),
+                contextKey = conversionSession.getConversionTarget(composing),
+                candidate = candidate,
+            ),
+        )
     }
 
     private fun updateKeyLabels() {
