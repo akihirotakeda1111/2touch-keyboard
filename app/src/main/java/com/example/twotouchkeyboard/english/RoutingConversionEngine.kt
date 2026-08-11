@@ -26,6 +26,37 @@ class RoutingConversionEngine(
         englishEngine.resetSession()
     }
 
+    override fun recordCandidateSelection(
+        contextKey: String,
+        candidate: String,
+        mode: ConversionMode,
+    ) {
+        when (mode) {
+            ConversionMode.ALPHABET -> englishEngine.recordCandidateSelection(
+                contextKey,
+                candidate,
+                mode,
+            )
+            ConversionMode.HIRAGANA, ConversionMode.NUMBER -> japaneseEngine.recordCandidateSelection(
+                contextKey,
+                candidate,
+                mode,
+            )
+        }
+    }
+
+    override fun clearCandidateUsageHistory(mode: ConversionMode?) {
+        if (mode == null) {
+            japaneseEngine.clearCandidateUsageHistory(null)
+            englishEngine.clearCandidateUsageHistory(null)
+            return
+        }
+        when (mode) {
+            ConversionMode.ALPHABET -> englishEngine.clearCandidateUsageHistory(mode)
+            ConversionMode.HIRAGANA, ConversionMode.NUMBER -> japaneseEngine.clearCandidateUsageHistory(mode)
+        }
+    }
+
     override fun close() {
         japaneseEngine.close()
         englishEngine.close()

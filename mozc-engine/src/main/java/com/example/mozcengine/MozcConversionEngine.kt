@@ -35,6 +35,21 @@ class MozcConversionEngine private constructor(
         session.resetSession()
     }
 
+    override fun recordCandidateSelection(
+        contextKey: String,
+        candidate: String,
+        mode: ConversionMode,
+    ) {
+        if (mode != ConversionMode.HIRAGANA) return
+        session.addUserHistory(contextKey, candidate)
+    }
+
+    override fun clearCandidateUsageHistory(mode: ConversionMode?) {
+        if (mode == null || mode == ConversionMode.HIRAGANA) {
+            session.clearUserHistory()
+        }
+    }
+
     override fun close() {
         session.deleteSession()
     }

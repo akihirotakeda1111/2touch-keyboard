@@ -20,4 +20,10 @@ interface ConversionEngine {
     fun resetSession()
 
     fun close()
+
+    /** Records a committed candidate for usage-based learning (Mozc user history, etc.). */
+    fun recordCandidateSelection(contextKey: String, candidate: String, mode: ConversionMode) = Unit
+
+    /** Clears learned candidate usage. When [mode] is null, all modes are cleared. */
+    fun clearCandidateUsageHistory(mode: ConversionMode? = null) = Unit
 }

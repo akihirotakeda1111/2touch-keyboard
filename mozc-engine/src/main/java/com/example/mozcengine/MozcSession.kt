@@ -72,6 +72,25 @@ class MozcSession private constructor(
         lastMode = null
     }
 
+    fun addUserHistory(key: String, value: String) {
+        if (key.isEmpty() || value.isEmpty()) return
+        evaluateGlobal(
+            Input.newBuilder()
+                .setType(Input.CommandType.ADD_USER_HISTORY)
+                .setUserHistoryData(
+                    ProtoCommands.UserHistoryData.newBuilder()
+                        .setKey(key)
+                        .setValue(value)
+                        .build(),
+                )
+                .build(),
+        )
+    }
+
+    fun clearUserHistory() {
+        clearUserHistoryData()
+    }
+
     fun deleteSession() {
         if (sessionId == INVALID_SESSION_ID) return
         evaluate(
@@ -263,6 +282,24 @@ class MozcSession private constructor(
             } else {
                 ""
             }
+        }
+
+        fun clearUserHistory(context: Context) {
+            ensureMozcLoaded(context.applicationContext)
+            clearUserHistoryData()
+        }
+
+        private fun clearUserHistoryData() {
+            evaluateGlobal(
+                Input.newBuilder()
+                    .setType(Input.CommandType.CLEAR_USER_HISTORY)
+                    .build(),
+            )
+            evaluateGlobal(
+                Input.newBuilder()
+                    .setType(Input.CommandType.CLEAR_USER_PREDICTION)
+                    .build(),
+            )
         }
 
         private fun ensureMozcLoaded(context: Context) {
