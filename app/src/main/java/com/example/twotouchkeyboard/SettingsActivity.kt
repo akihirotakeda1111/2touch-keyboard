@@ -2,7 +2,6 @@ package com.example.twotouchkeyboard
 
 import android.content.Intent
 import android.os.Bundle
-import android.provider.Settings
 import android.view.inputmethod.InputMethodManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -54,7 +53,7 @@ class SettingsActivity : ComponentActivity() {
                         startActivity(Intent(this, InputTryActivity::class.java))
                     },
                     onOpenImeSettings = {
-                        startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
+                        ImeSetupNavigation.openInputMethodSettings(this)
                     },
                     onOpenImePicker = {
                         val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
