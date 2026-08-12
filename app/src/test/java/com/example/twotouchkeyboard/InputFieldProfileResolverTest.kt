@@ -23,7 +23,7 @@ class InputFieldProfileResolverTest {
     }
 
     @Test
-    fun resolve_returnsAlphabetPassthrough_forPassword() {
+    fun resolve_returnsPasswordProfile_forPassword() {
         val profile = InputFieldProfileResolver.resolve(
             editorInfo(
                 InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD,
@@ -33,23 +33,23 @@ class InputFieldProfileResolverTest {
         assertEquals(InputMode.ALPHABET, profile.preferredMode)
         assertFalse(profile.conversionEnabled)
         assertTrue(profile.passthroughEnabled)
-        assertFalse(profile.modeSwitchEnabled)
+        assertTrue(profile.modeSwitchEnabled)
     }
 
     @Test
-    fun resolve_returnsNumberPassthrough_forPhone() {
+    fun resolve_returnsFieldProfile_forPhone() {
         val profile = InputFieldProfileResolver.resolve(
             editorInfo(InputType.TYPE_CLASS_PHONE),
         )
 
         assertEquals(InputMode.NUMBER, profile.preferredMode)
-        assertFalse(profile.conversionEnabled)
-        assertTrue(profile.passthroughEnabled)
-        assertFalse(profile.modeSwitchEnabled)
+        assertTrue(profile.conversionEnabled)
+        assertFalse(profile.passthroughEnabled)
+        assertTrue(profile.modeSwitchEnabled)
     }
 
     @Test
-    fun resolve_returnsAlphabetPassthrough_forEmail() {
+    fun resolve_returnsFieldProfile_forEmail() {
         val profile = InputFieldProfileResolver.resolve(
             editorInfo(
                 InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS,
@@ -57,9 +57,21 @@ class InputFieldProfileResolverTest {
         )
 
         assertEquals(InputMode.ALPHABET, profile.preferredMode)
-        assertFalse(profile.conversionEnabled)
-        assertTrue(profile.passthroughEnabled)
-        assertFalse(profile.modeSwitchEnabled)
+        assertTrue(profile.conversionEnabled)
+        assertFalse(profile.passthroughEnabled)
+        assertTrue(profile.modeSwitchEnabled)
+    }
+
+    @Test
+    fun resolve_returnsFieldProfile_forNumberClass() {
+        val profile = InputFieldProfileResolver.resolve(
+            editorInfo(InputType.TYPE_CLASS_NUMBER),
+        )
+
+        assertEquals(InputMode.NUMBER, profile.preferredMode)
+        assertTrue(profile.conversionEnabled)
+        assertFalse(profile.passthroughEnabled)
+        assertTrue(profile.modeSwitchEnabled)
     }
 
     private fun editorInfo(inputType: Int): EditorInfo {
