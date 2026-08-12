@@ -13,9 +13,8 @@ object InputFieldProfileResolver {
 
         val inputType = info.inputType
         val typeClass = inputType and InputType.TYPE_MASK_CLASS
-        val variation = inputType and InputType.TYPE_MASK_VARIATION
 
-        if (isPasswordVariation(variation)) {
+        if (isPasswordInputType(inputType)) {
             return passwordProfile(preferredMode = InputMode.ALPHABET)
         }
 
@@ -24,24 +23,30 @@ object InputFieldProfileResolver {
             InputType.TYPE_CLASS_PHONE -> return fieldProfile(InputMode.NUMBER)
         }
 
-        if (isAlphabetPassthroughVariation(variation)) {
+        if (isAlphabetFieldInputType(inputType)) {
             return fieldProfile(InputMode.ALPHABET)
         }
 
         return InputFieldProfile.DEFAULT
     }
 
-    private fun isPasswordVariation(variation: Int): Boolean {
-        return variation == InputType.TYPE_TEXT_VARIATION_PASSWORD ||
-            variation == InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD ||
-            variation == InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD ||
-            variation == InputType.TYPE_NUMBER_VARIATION_PASSWORD
+    private fun isPasswordInputType(inputType: Int): Boolean {
+        return hasTextVariation(inputType, InputType.TYPE_TEXT_VARIATION_PASSWORD) ||
+            hasTextVariation(inputType, InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD) ||
+            hasTextVariation(inputType, InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD) ||
+            (inputType and InputType.TYPE_MASK_VARIATION) ==
+            (InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD)
     }
 
-    private fun isAlphabetPassthroughVariation(variation: Int): Boolean {
-        return variation == InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS ||
-            variation == InputType.TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS ||
-            variation == InputType.TYPE_TEXT_VARIATION_URI
+    private fun isAlphabetFieldInputType(inputType: Int): Boolean {
+        return hasTextVariation(inputType, InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS) ||
+            hasTextVariation(inputType, InputType.TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS) ||
+            hasTextVariation(inputType, InputType.TYPE_TEXT_VARIATION_URI)
+    }
+
+    private fun hasTextVariation(inputType: Int, textVariation: Int): Boolean {
+        return (inputType and InputType.TYPE_MASK_VARIATION) ==
+            (InputType.TYPE_CLASS_TEXT or textVariation)
     }
 
     private fun passwordProfile(preferredMode: InputMode): InputFieldProfile {

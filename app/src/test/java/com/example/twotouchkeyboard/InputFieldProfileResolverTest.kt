@@ -63,6 +63,20 @@ class InputFieldProfileResolverTest {
     }
 
     @Test
+    fun resolve_returnsFieldProfile_forUri() {
+        val profile = InputFieldProfileResolver.resolve(
+            editorInfo(
+                InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI,
+            ),
+        )
+
+        assertEquals(InputMode.ALPHABET, profile.preferredMode)
+        assertTrue(profile.conversionEnabled)
+        assertFalse(profile.passthroughEnabled)
+        assertTrue(profile.modeSwitchEnabled)
+    }
+
+    @Test
     fun resolve_returnsFieldProfile_forNumberClass() {
         val profile = InputFieldProfileResolver.resolve(
             editorInfo(InputType.TYPE_CLASS_NUMBER),
