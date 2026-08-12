@@ -15,41 +15,51 @@ object InputFieldProfileResolver {
         val typeClass = inputType and InputType.TYPE_MASK_CLASS
         val variation = inputType and InputType.TYPE_MASK_VARIATION
 
-        if (isPasswordVariation(variation)) {
-            return passthroughProfile(InputMode.ALPHABET)
+        if (isPasswordInputType(inputType, variation)) {
+            return passwordProfile(preferredMode = InputMode.ALPHABET)
         }
 
         when (typeClass) {
-            InputType.TYPE_CLASS_NUMBER -> return passthroughProfile(InputMode.NUMBER)
-            InputType.TYPE_CLASS_PHONE -> return passthroughProfile(InputMode.NUMBER)
+            InputType.TYPE_CLASS_NUMBER -> return fieldProfile(InputMode.NUMBER)
+            InputType.TYPE_CLASS_PHONE -> return fieldProfile(InputMode.NUMBER)
         }
 
-        if (isAlphabetPassthroughVariation(variation)) {
-            return passthroughProfile(InputMode.ALPHABET)
+        if (isAlphabetFieldInputType(variation)) {
+            return fieldProfile(InputMode.ALPHABET)
         }
 
         return InputFieldProfile.DEFAULT
     }
 
-    private fun isPasswordVariation(variation: Int): Boolean {
+    private fun isPasswordInputType(inputType: Int, variation: Int): Boolean {
         return variation == InputType.TYPE_TEXT_VARIATION_PASSWORD ||
             variation == InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD ||
             variation == InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD ||
+            (inputType and InputType.TYPE_MASK_CLASS) == InputType.TYPE_CLASS_NUMBER &&
             variation == InputType.TYPE_NUMBER_VARIATION_PASSWORD
     }
 
-    private fun isAlphabetPassthroughVariation(variation: Int): Boolean {
+    private fun isAlphabetFieldInputType(variation: Int): Boolean {
         return variation == InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS ||
             variation == InputType.TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS ||
             variation == InputType.TYPE_TEXT_VARIATION_URI
     }
 
-    private fun passthroughProfile(mode: InputMode): InputFieldProfile {
+    private fun passwordProfile(preferredMode: InputMode): InputFieldProfile {
         return InputFieldProfile(
-            preferredMode = mode,
+            preferredMode = preferredMode,
             conversionEnabled = false,
             passthroughEnabled = true,
-            modeSwitchEnabled = false,
+            modeSwitchEnabled = true,
+        )
+    }
+
+    private fun fieldProfile(preferredMode: InputMode): InputFieldProfile {
+        return InputFieldProfile(
+            preferredMode = preferredMode,
+            conversionEnabled = true,
+            passthroughEnabled = false,
+            modeSwitchEnabled = true,
         )
     }
 }
