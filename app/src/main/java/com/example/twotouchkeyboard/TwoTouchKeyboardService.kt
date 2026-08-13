@@ -248,7 +248,17 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
                         false
                     }
                 }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP, MotionEvent.ACTION_CANCEL -> {
+                MotionEvent.ACTION_POINTER_UP -> {
+                    if (hasRemainingPointerInsideView(view, event)) {
+                        view.isPressed = true
+                        true
+                    } else {
+                        view.isPressed = false
+                        stopDeleteRepeat()
+                        true
+                    }
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     view.isPressed = false
                     stopDeleteRepeat()
                     true
@@ -258,9 +268,24 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         }
     }
 
+    private fun hasRemainingPointerInsideView(view: View, event: MotionEvent): Boolean {
+        val liftedPointerIndex = event.actionIndex
+        for (pointerIndex in 0 until event.pointerCount) {
+            if (pointerIndex == liftedPointerIndex) continue
+            if (isTouchInsideView(view, event.getX(pointerIndex), event.getY(pointerIndex))) {
+                return true
+            }
+        }
+        return false
+    }
+
     private fun isTouchInsideView(view: View, event: MotionEvent): Boolean {
-        return event.x in 0f..view.width.toFloat() &&
-            event.y in 0f..view.height.toFloat()
+        return isTouchInsideView(view, event.x, event.y)
+    }
+
+    private fun isTouchInsideView(view: View, x: Float, y: Float): Boolean {
+        return x in 0f..view.width.toFloat() &&
+            y in 0f..view.height.toFloat()
     }
 
     private fun startDeleteRepeat() {
