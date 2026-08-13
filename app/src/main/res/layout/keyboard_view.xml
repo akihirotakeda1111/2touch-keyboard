@@ -4,7 +4,7 @@
     android:layout_height="wrap_content"
     android:background="@color/keyboard_background"
     android:orientation="vertical"
-    android:padding="8dp">
+    android:padding="@dimen/keyboard_outer_padding">
 
     <TextView
         android:id="@+id/conversion_hint"
@@ -47,7 +47,7 @@
             android:layout_height="wrap_content"
             android:columnCount="4"
             android:rowCount="5"
-            android:useDefaultMargins="true">
+            android:useDefaultMargins="false">
 
             <Button
                 android:id="@+id/key_1"

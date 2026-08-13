@@ -5,7 +5,7 @@
     android:layout_height="wrap_content"
     android:columnCount="4"
     android:rowCount="4"
-    android:useDefaultMargins="true">
+    android:useDefaultMargins="false">
 
     <Button
         android:id="@+id/symbol_key_comma"
