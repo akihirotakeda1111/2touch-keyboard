@@ -191,18 +191,21 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
 
     private fun bindSymbolKeyboard(root: View) {
         SYMBOL_KEY_BINDINGS.forEach { (viewId, symbol) ->
-            root.findViewById<Button>(viewId).setOnTouchListener(
-                bindKeyTouchListener { insertSymbol(symbol) },
-            )
+            root.findViewById<Button>(viewId).apply {
+                setOnClickListener { insertSymbol(symbol) }
+                setOnTouchListener(bindKeyTouchListener { insertSymbol(symbol) })
+            }
         }
-        root.findViewById<Button>(R.id.symbol_key_close).setOnTouchListener(
-            bindKeyTouchListener { showMainKeyboard() },
-        )
+        root.findViewById<Button>(R.id.symbol_key_close).apply {
+            setOnClickListener { showMainKeyboard() }
+            setOnTouchListener(bindKeyTouchListener { showMainKeyboard() })
+        }
     }
 
     private fun bindKey(root: View, viewId: Int, key: KeyboardKey) {
         val button = root.findViewById<Button>(viewId)
         keyButtons[key] = button
+        button.setOnClickListener { dispatchKey(key) }
         button.setOnTouchListener(bindKeyTouchListener { dispatchKey(key) })
     }
 
