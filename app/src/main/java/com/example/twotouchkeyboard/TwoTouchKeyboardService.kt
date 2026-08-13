@@ -221,6 +221,15 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
                     startDeleteRepeat()
                     true
                 }
+                MotionEvent.ACTION_MOVE -> {
+                    if (!isTouchInsideView(view, event)) {
+                        view.isPressed = false
+                        stopDeleteRepeat()
+                        true
+                    } else {
+                        false
+                    }
+                }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     view.isPressed = false
                     stopDeleteRepeat()
@@ -229,6 +238,11 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
                 else -> false
             }
         }
+    }
+
+    private fun isTouchInsideView(view: View, event: MotionEvent): Boolean {
+        return event.x in 0f..view.width.toFloat() &&
+            event.y in 0f..view.height.toFloat()
     }
 
     private fun startDeleteRepeat() {
