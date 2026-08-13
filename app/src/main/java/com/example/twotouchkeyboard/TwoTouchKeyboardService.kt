@@ -211,6 +211,9 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     private fun bindDeleteKey(root: View, viewId: Int) {
         val button = root.findViewById<Button>(viewId)
         keyButtons[KeyboardKey.Delete] = button
+        button.setOnClickListener {
+            performDeleteKeyAction()
+        }
         button.setOnTouchListener { view, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
