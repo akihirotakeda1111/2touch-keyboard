@@ -52,13 +52,7 @@ abstract class BaseInputProcessor(
             host.clearComposingState()
             return
         }
-        val action = editorInfo?.imeOptions?.and(EditorInfo.IME_MASK_ACTION)
-            ?: EditorInfo.IME_ACTION_NONE
-        if (action != EditorInfo.IME_ACTION_NONE) {
-            ic.performEditorAction(action)
-        } else {
-            ic.commitText("\n", 1)
-        }
+        ic.commitText("\n", 1)
     }
 
     override fun isMidCharacterInput(): Boolean {
