@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- 外周余白を削減し、その分をキー領域へ再配分（全体高さ 296dp を維持） -->
-    <dimen name="keyboard_outer_padding">3dp</dimen>
-    <!-- キー間隔なし（GridLayout 上は隣接。視覚的分離は Button 背景に任せる） -->
+    <!-- 旧レイアウトと同じ外周余白（keyboard_view 実測 336dp を維持） -->
+    <dimen name="keyboard_outer_padding">8dp</dimen>
+    <!-- useDefaultMargins 廃止分をキーへ再配分するため margin 0（視覚的分離は Button 背景） -->
     <dimen name="keyboard_key_margin">0dp</dimen>
-    <!-- 旧 56dp + 外周 padding 削減分 10dp / 5 行 ≒ 58dp -->
-    <dimen name="keyboard_key_height">58dp</dimen>
-    <!-- 2 行分（58dp × 2、行間ギャップなし） -->
-    <dimen name="keyboard_tall_key_height">116dp</dimen>
+    <!-- (336dp − 16dp padding) / 5 行 = 64dp。旧 56dp + GridLayout デフォルト margin 分 -->
+    <dimen name="keyboard_key_height">64dp</dimen>
+    <!-- 2 行分（64dp × 2）。旧 118dp = 2×56dp + 行間 margin 6dp -->
+    <dimen name="keyboard_tall_key_height">128dp</dimen>
 </resources>
