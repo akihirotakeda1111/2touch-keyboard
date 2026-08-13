@@ -191,20 +191,38 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
 
     private fun bindSymbolKeyboard(root: View) {
         SYMBOL_KEY_BINDINGS.forEach { (viewId, symbol) ->
-            root.findViewById<Button>(viewId).setOnClickListener {
-                insertSymbol(symbol)
+            root.findViewById<Button>(viewId).apply {
+                setOnClickListener { insertSymbol(symbol) }
+                setOnTouchListener(bindKeyTouchListener { insertSymbol(symbol) })
             }
         }
-        root.findViewById<Button>(R.id.symbol_key_close).setOnClickListener {
-            showMainKeyboard()
+        root.findViewById<Button>(R.id.symbol_key_close).apply {
+            setOnClickListener { showMainKeyboard() }
+            setOnTouchListener(bindKeyTouchListener { showMainKeyboard() })
         }
     }
 
     private fun bindKey(root: View, viewId: Int, key: KeyboardKey) {
         val button = root.findViewById<Button>(viewId)
         keyButtons[key] = button
-        button.setOnClickListener {
-            dispatchKey(key)
+        button.setOnClickListener { dispatchKey(key) }
+        button.setOnTouchListener(bindKeyTouchListener { dispatchKey(key) })
+    }
+
+    private fun bindKeyTouchListener(onPress: () -> Unit): View.OnTouchListener {
+        return View.OnTouchListener { view, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
+                    view.isPressed = true
+                    onPress()
+                    true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP, MotionEvent.ACTION_CANCEL -> {
+                    view.isPressed = false
+                    true
+                }
+                else -> false
+            }
         }
     }
 
@@ -216,7 +234,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         }
         button.setOnTouchListener { view, event ->
             when (event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
+                MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
                     view.isPressed = true
                     startDeleteRepeat()
                     true
@@ -230,6 +248,16 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
                         false
                     }
                 }
+                MotionEvent.ACTION_POINTER_UP -> {
+                    if (hasRemainingPointerInsideView(view, event)) {
+                        view.isPressed = true
+                        true
+                    } else {
+                        view.isPressed = false
+                        stopDeleteRepeat()
+                        true
+                    }
+                }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     view.isPressed = false
                     stopDeleteRepeat()
@@ -240,9 +268,24 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         }
     }
 
+    private fun hasRemainingPointerInsideView(view: View, event: MotionEvent): Boolean {
+        val liftedPointerIndex = event.actionIndex
+        for (pointerIndex in 0 until event.pointerCount) {
+            if (pointerIndex == liftedPointerIndex) continue
+            if (isTouchInsideView(view, event.getX(pointerIndex), event.getY(pointerIndex))) {
+                return true
+            }
+        }
+        return false
+    }
+
     private fun isTouchInsideView(view: View, event: MotionEvent): Boolean {
-        return event.x in 0f..view.width.toFloat() &&
-            event.y in 0f..view.height.toFloat()
+        return isTouchInsideView(view, event.x, event.y)
+    }
+
+    private fun isTouchInsideView(view: View, x: Float, y: Float): Boolean {
+        return x in 0f..view.width.toFloat() &&
+            y in 0f..view.height.toFloat()
     }
 
     private fun startDeleteRepeat() {
