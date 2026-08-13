@@ -2,6 +2,7 @@ package com.example.twotouchkeyboard
 
 import android.inputmethodservice.InputMethodService
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
@@ -53,6 +54,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     private val conversionScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var conversionJob: Job? = null
     private var toggleAutoCommitJob: Job? = null
+    private var deleteRepeatJob: Job? = null
     private var settingsCollectJob: Job? = null
 
     private val conversionSession = ConversionSession()
@@ -163,7 +165,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         bindKey(keyboardView, R.id.key_star, KeyboardKey.Star)
         bindKey(keyboardView, R.id.key_0, KeyboardKey.Zero)
         bindKey(keyboardView, R.id.key_hash, KeyboardKey.Hash)
-        bindKey(keyboardView, R.id.key_delete, KeyboardKey.Delete)
+        bindDeleteKey(keyboardView, R.id.key_delete)
         bindKey(keyboardView, R.id.key_enter, KeyboardKey.Enter)
         bindKey(keyboardView, R.id.key_space, KeyboardKey.Space)
         bindKey(keyboardView, R.id.key_cursor_left, KeyboardKey.CursorLeft)
@@ -204,6 +206,72 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         button.setOnClickListener {
             dispatchKey(key)
         }
+    }
+
+    private fun bindDeleteKey(root: View, viewId: Int) {
+        val button = root.findViewById<Button>(viewId)
+        keyButtons[KeyboardKey.Delete] = button
+        button.setOnClickListener {
+            performDeleteKeyAction()
+        }
+        button.setOnTouchListener { view, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    view.isPressed = true
+                    startDeleteRepeat()
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    if (!isTouchInsideView(view, event)) {
+                        view.isPressed = false
+                        stopDeleteRepeat()
+                        true
+                    } else {
+                        false
+                    }
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    view.isPressed = false
+                    stopDeleteRepeat()
+                    true
+                }
+                else -> false
+            }
+        }
+    }
+
+    private fun isTouchInsideView(view: View, event: MotionEvent): Boolean {
+        return event.x in 0f..view.width.toFloat() &&
+            event.y in 0f..view.height.toFloat()
+    }
+
+    private fun startDeleteRepeat() {
+        stopDeleteRepeat()
+        performDeleteKeyAction()
+        deleteRepeatJob = conversionScope.launch {
+            delay(DELETE_REPEAT_INITIAL_DELAY_MS)
+            var intervalMs = DELETE_REPEAT_INTERVAL_MS
+            while (true) {
+                performDeleteKeyAction()
+                delay(intervalMs)
+                intervalMs = (intervalMs * DELETE_REPEAT_ACCELERATION_RATIO)
+                    .toLong()
+                    .coerceAtLeast(DELETE_REPEAT_MIN_INTERVAL_MS)
+            }
+        }
+    }
+
+    private fun stopDeleteRepeat() {
+        deleteRepeatJob?.cancel()
+        deleteRepeatJob = null
+    }
+
+    private fun performDeleteKeyAction() {
+        coordinator.bindInputConnection(currentInputConnection)
+        if (canHandleConversionKey(KeyboardKey.Delete) && handleConversionKey(KeyboardKey.Delete)) {
+            return
+        }
+        handleDeleteKey()
     }
 
     private fun dispatchKey(key: KeyboardKey) {
@@ -716,6 +784,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {
+        stopDeleteRepeat()
         if (::coordinator.isInitialized) {
             finalizeInputState()
             coordinator.resetInputSession()
@@ -725,6 +794,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
 
     override fun onDestroy() {
         lifecycleRegistry.currentState = Lifecycle.State.DESTROYED
+        stopDeleteRepeat()
         settingsCollectJob?.cancel()
         toggleAutoCommitJob?.cancel()
         conversionScope.cancel()
@@ -737,6 +807,10 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     companion object {
         private const val INDEX_MAIN_KEYBOARD = 0
         private const val INDEX_SYMBOL_KEYBOARD = 1
+        private const val DELETE_REPEAT_INITIAL_DELAY_MS = 400L
+        private const val DELETE_REPEAT_INTERVAL_MS = 50L
+        private const val DELETE_REPEAT_MIN_INTERVAL_MS = 20L
+        private const val DELETE_REPEAT_ACCELERATION_RATIO = 0.85
 
         private val SYMBOL_KEY_BINDINGS = mapOf(
             R.id.symbol_key_comma to "、",
