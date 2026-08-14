@@ -124,6 +124,8 @@ class KeyboardInputCoordinator(
 
     fun isMidCharacterInput(): Boolean = activeProcessor().isMidCharacterInput()
 
+    fun getTwoTouchWaitingRowKey(): KeyboardKey? = activeProcessor().getTwoTouchWaitingRowKey()
+
     fun setComposingFromConversion(text: String) {
         confirmedBuffer.clear()
         confirmedBuffer.append(text)

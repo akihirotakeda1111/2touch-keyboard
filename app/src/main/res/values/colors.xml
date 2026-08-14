@@ -6,5 +6,8 @@
     <color name="candidate_selected_background">#1976D2</color>
     <color name="candidate_selected_text">#FFFFFF</color>
     <color name="candidate_divider">#BDBDBD</color>
+    <color name="key_background">#FFFFFF</color>
+    <color name="key_pressed_background">#BDBDBD</color>
+    <color name="key_waiting_highlight_background">#BBDEFB</color>
 </resources>
 
