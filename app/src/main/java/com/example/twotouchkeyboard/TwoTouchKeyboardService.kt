@@ -47,6 +47,11 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     private lateinit var settingsRepository: SettingsRepository
 
     private val keyButtons: MutableMap<KeyboardKey, Button> = mutableMapOf()
+    private val displayedKeyLabels: MutableMap<KeyboardKey, String> = mutableMapOf()
+    private lateinit var keyboardRootView: View
+    private var highlightedWaitingRowKey: KeyboardKey? = null
+    private var labelUpdatePosted = false
+    private var pendingForceAllLabels = false
     private lateinit var keyboardFlipper: ViewFlipper
     private lateinit var conversionEngine: ConversionEngine
     private lateinit var candidateLearningCoordinator: CandidateLearningCoordinator
@@ -93,7 +98,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
                 if (::coordinator.isInitialized) {
                     coordinator.setHiraganaInputMethod(snapshot.hiraganaMethod)
                     coordinator.setAlphabetInputMethod(snapshot.alphabetMethod)
-                    updateKeyLabels()
+                    onKeyboardStateChanged(forceAllLabels = true)
                 }
             }
         }
@@ -108,6 +113,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
 
     override fun onCreateInputView(): View {
         val keyboardView = layoutInflater.inflate(R.layout.keyboard_view, null)
+        keyboardRootView = keyboardView
         applyNavigationBarPadding(keyboardView)
         keyboardView.layoutParams = ViewGroup.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
@@ -122,7 +128,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         coordinator = KeyboardInputCoordinator(
             listener = object : KeyboardInputCoordinator.Listener {
                 override fun onStateChanged() {
-                    updateKeyLabels()
+                    onKeyboardStateChanged()
                 }
 
                 override fun onComposingTextUpdated(composingText: String) {
@@ -131,7 +137,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
 
                 override fun onInputModeChanged(mode: InputMode) {
                     resetConversionState()
-                    updateKeyLabels()
+                    onKeyboardStateChanged(forceAllLabels = true)
                 }
 
                 override fun scheduleToggleAutoCommit(onTimeout: () -> Unit) {
@@ -173,7 +179,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         bindKey(keyboardView, R.id.key_text_modifier, KeyboardKey.TextModifier)
         bindSymbolKeyboard(keyboardView)
 
-        updateKeyLabels()
+        onKeyboardStateChanged(forceAllLabels = true)
         showMainKeyboard()
         return keyboardView
     }
@@ -342,7 +348,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
                     coordinator.onKeyPressed(key)
                 } else {
                     coordinator.applyTextModifier()
-                    updateKeyLabels()
+                    onKeyboardStateChanged()
                 }
             }
             KeyboardKey.Delete -> handleDeleteKey()
@@ -488,7 +494,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     private fun refreshConversionUi() {
         updateConversionHint()
         updateCandidateUi(conversionSession.getCandidates())
-        updateKeyLabels()
+        scheduleKeyLabelUpdate()
     }
 
     private fun updateConversionHint() {
@@ -666,7 +672,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         candidateContainer.removeAllViews()
         candidateScroll.visibility = View.GONE
         if (keyButtons.isNotEmpty()) {
-            updateKeyLabels()
+            scheduleKeyLabelUpdate()
         }
     }
 
@@ -719,9 +725,56 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         )
     }
 
-    private fun updateKeyLabels() {
+    private fun onKeyboardStateChanged(forceAllLabels: Boolean = false) {
+        updateTwoTouchWaitingHighlight()
+        scheduleKeyLabelUpdate(forceAll = forceAllLabels)
+    }
+
+    private fun updateTwoTouchWaitingHighlight() {
+        val waitingRowKey = coordinator.getTwoTouchWaitingRowKey()
+        if (waitingRowKey == highlightedWaitingRowKey) return
+
+        highlightedWaitingRowKey?.let { previousKey ->
+            keyButtons[previousKey]?.isActivated = false
+        }
+        highlightedWaitingRowKey = waitingRowKey
+        waitingRowKey?.let { key ->
+            keyButtons[key]?.isActivated = true
+        }
+    }
+
+    private fun scheduleKeyLabelUpdate(forceAll: Boolean = false) {
+        if (forceAll) {
+            pendingForceAllLabels = true
+        }
+        if (!::keyboardRootView.isInitialized) {
+            applyKeyLabelDiff(forceAll = pendingForceAllLabels)
+            pendingForceAllLabels = false
+            return
+        }
+        if (labelUpdatePosted) return
+        labelUpdatePosted = true
+        keyboardRootView.post {
+            labelUpdatePosted = false
+            val force = pendingForceAllLabels
+            pendingForceAllLabels = false
+            applyKeyLabelDiff(forceAll = force)
+        }
+    }
+
+    private fun applyKeyLabelDiff(forceAll: Boolean = false) {
+        if (forceAll) {
+            displayedKeyLabels.clear()
+        }
         keyButtons.forEach { (key, button) ->
-            button.text = getKeyLabel(key)
+            val newLabel = getKeyLabel(key)
+            val previousLabel = displayedKeyLabels[key]
+            if (forceAll || previousLabel != newLabel) {
+                if (button.text.toString() != newLabel) {
+                    button.text = newLabel
+                }
+                displayedKeyLabels[key] = newLabel
+            }
         }
     }
 

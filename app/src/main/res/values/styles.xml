@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="KeyboardKey">
+        <item name="android:background">@drawable/key_background</item>
         <item name="android:layout_width">0dp</item>
         <item name="android:layout_height">@dimen/keyboard_key_height</item>
         <item name="android:layout_columnWeight">1</item>

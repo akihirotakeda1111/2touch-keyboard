@@ -2,10 +2,11 @@
 <resources>
     <!-- 旧レイアウトと同じ外周余白（keyboard_view 実測 336dp を維持） -->
     <dimen name="keyboard_outer_padding">8dp</dimen>
-    <!-- useDefaultMargins 廃止分をキーへ再配分するため margin 0（視覚的分離は Button 背景） -->
-    <dimen name="keyboard_key_margin">0dp</dimen>
-    <!-- (336dp − 16dp padding) / 5 行 = 64dp。旧 56dp + GridLayout デフォルト margin 分 -->
-    <dimen name="keyboard_key_height">64dp</dimen>
-    <!-- 2 行分（64dp × 2）。旧 118dp = 2×56dp + 行間 margin 6dp -->
-    <dimen name="keyboard_tall_key_height">128dp</dimen>
+    <!-- キー間隔 1dp（隣接キー間は 2dp の隙間として keyboard_background が見える） -->
+    <dimen name="keyboard_key_margin">1dp</dimen>
+    <!-- (320dp − 10dp margin) / 5 行 = 62dp。336dp フットプリント維持 -->
+    <dimen name="keyboard_key_height">62dp</dimen>
+    <!-- 2 行分（62dp × 2 + 行間 2dp） -->
+    <dimen name="keyboard_tall_key_height">126dp</dimen>
+    <dimen name="keyboard_key_stroke_width">0.5dp</dimen>
 </resources>
