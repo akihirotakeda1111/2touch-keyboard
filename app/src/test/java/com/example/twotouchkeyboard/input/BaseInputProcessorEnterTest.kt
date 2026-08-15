@@ -2,6 +2,7 @@ package com.example.twotouchkeyboard.input
 
 import android.os.Handler
 import android.os.Looper
+import android.text.InputType
 import android.view.KeyEvent
 import android.view.inputmethod.CompletionInfo
 import android.view.inputmethod.CorrectionInfo
@@ -34,14 +35,6 @@ class BaseInputProcessorEnterTest {
     }
 
     @Test
-    fun onEnter_insertsNewline_whenComposingIsEmpty() {
-        processor.onEnter(inputConnection, editorInfoWithAction(EditorInfo.IME_ACTION_SEND))
-
-        assertEquals(listOf(Commit("\n", 1)), inputConnection.commits)
-        assertFalse(host.composingCommitted)
-    }
-
-    @Test
     fun onEnter_commitsComposingWithoutNewline_whenComposingIsNotEmpty() {
         host.preview = "hello"
 
@@ -51,28 +44,87 @@ class BaseInputProcessorEnterTest {
         assertTrue(host.composingCleared)
         assertEquals(emptyList<Commit>(), inputConnection.commits)
         assertEquals(emptyList<Int>(), inputConnection.editorActions)
+        assertFalse(host.hideSoftInputRequested)
     }
 
     @Test
-    fun onEnter_insertsNewline_afterComposingWasCommitted() {
-        host.preview = "hello"
-        processor.onEnter(inputConnection, editorInfoWithAction(EditorInfo.IME_ACTION_SEND))
+    fun onEnter_insertsNewline_forMultilineSendField() {
+        val info = EditorInfo().apply {
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
+            imeOptions = EditorInfo.IME_ACTION_SEND
+        }
 
-        host.preview = ""
-        processor.onEnter(inputConnection, editorInfoWithAction(EditorInfo.IME_ACTION_SEND))
+        processor.onEnter(inputConnection, info)
 
         assertEquals(listOf(Commit("\n", 1)), inputConnection.commits)
         assertEquals(emptyList<Int>(), inputConnection.editorActions)
+        assertFalse(host.hideSoftInputRequested)
+    }
+
+    @Test
+    fun onEnter_hidesKeyboard_forSingleLineSendField() {
+        val info = EditorInfo().apply {
+            inputType = InputType.TYPE_CLASS_TEXT
+            imeOptions = EditorInfo.IME_ACTION_SEND
+        }
+
+        processor.onEnter(inputConnection, info)
+
+        assertTrue(host.hideSoftInputRequested)
+        assertEquals(emptyList<Commit>(), inputConnection.commits)
+        assertEquals(emptyList<Int>(), inputConnection.editorActions)
+    }
+
+    @Test
+    fun onEnter_hidesKeyboard_forSingleLineDoneField() {
+        processor.onEnter(inputConnection, editorInfoWithAction(EditorInfo.IME_ACTION_DONE))
+
+        assertTrue(host.hideSoftInputRequested)
+        assertEquals(emptyList<Commit>(), inputConnection.commits)
+        assertEquals(emptyList<Int>(), inputConnection.editorActions)
+    }
+
+    @Test
+    fun onEnter_performsGo_forUriField() {
+        val info = EditorInfo().apply {
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
+            imeOptions = EditorInfo.IME_ACTION_GO
+        }
+
+        processor.onEnter(inputConnection, info)
+
+        assertEquals(listOf(EditorInfo.IME_ACTION_GO), inputConnection.editorActions)
+        assertEquals(emptyList<Commit>(), inputConnection.commits)
+        assertFalse(host.hideSoftInputRequested)
+    }
+
+    @Test
+    fun onEnter_insertsNewline_afterComposingWasCommitted_onMultilineField() {
+        val info = EditorInfo().apply {
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
+            imeOptions = EditorInfo.IME_ACTION_SEND
+        }
+        host.preview = "hello"
+        processor.onEnter(inputConnection, info)
+
+        host.preview = ""
+        processor.onEnter(inputConnection, info)
+
+        assertEquals(listOf(Commit("\n", 1)), inputConnection.commits)
     }
 
     private fun editorInfoWithAction(action: Int): EditorInfo {
-        return EditorInfo().apply { imeOptions = action }
+        return EditorInfo().apply {
+            inputType = InputType.TYPE_CLASS_TEXT
+            imeOptions = action
+        }
     }
 
     private class FakeInputProcessorHost : InputProcessorHost {
         var preview: String = ""
         var composingCommitted = false
         var composingCleared = false
+        var hideSoftInputRequested = false
 
         override fun appendConfirmedCharacter(character: String) = Unit
 
@@ -108,6 +160,10 @@ class BaseInputProcessorEnterTest {
         override fun scheduleToggleAutoCommit(onTimeout: () -> Unit) = Unit
 
         override fun cancelToggleAutoCommit() = Unit
+
+        override fun requestHideSoftInput() {
+            hideSoftInputRequested = true
+        }
     }
 
     private data class Commit(val text: String, val newCursorPosition: Int)

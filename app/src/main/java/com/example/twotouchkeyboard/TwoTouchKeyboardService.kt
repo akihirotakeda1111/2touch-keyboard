@@ -25,6 +25,8 @@ import com.example.mozcengine.AlphabetPredictionSupport
 import com.example.twotouchkeyboard.candidate.CandidateLearningCoordinator
 import com.example.twotouchkeyboard.candidate.CandidateUsageContext
 import com.example.twotouchkeyboard.candidate.EnglishCandidateUsageStore
+import com.example.twotouchkeyboard.input.EnterBehaviorResolver
+import com.example.twotouchkeyboard.input.EnterKeyLabels
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -152,6 +154,10 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
                 override fun cancelToggleAutoCommit() {
                     toggleAutoCommitJob?.cancel()
                     toggleAutoCommitJob = null
+                }
+
+                override fun requestHideSoftInput() {
+                    requestHideSelf(0)
                 }
             },
         )
@@ -790,6 +796,19 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         }
         if (key == KeyboardKey.Enter && conversionSession.isActive) {
             return getString(R.string.key_confirm)
+        }
+        if (key == KeyboardKey.Enter) {
+            return EnterBehaviorResolver.getEnterKeyLabel(
+                info = coordinator.getCurrentEditorInfo(),
+                labels = EnterKeyLabels(
+                    newline = getString(R.string.key_enter),
+                    close = getString(R.string.key_symbol_close),
+                    go = getString(R.string.key_go),
+                    search = getString(R.string.key_search),
+                    next = getString(R.string.key_next),
+                    previous = getString(R.string.key_previous),
+                ),
+            )
         }
         return coordinator.getKeyLabel(key)
     }

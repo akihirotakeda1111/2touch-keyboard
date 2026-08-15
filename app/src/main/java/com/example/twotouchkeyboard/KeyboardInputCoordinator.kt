@@ -24,6 +24,7 @@ class KeyboardInputCoordinator(
         fun onInputModeChanged(mode: InputMode)
         fun scheduleToggleAutoCommit(onTimeout: () -> Unit)
         fun cancelToggleAutoCommit()
+        fun requestHideSoftInput()
     }
 
     private val confirmedBuffer = StringBuilder()
@@ -125,6 +126,8 @@ class KeyboardInputCoordinator(
     fun isMidCharacterInput(): Boolean = activeProcessor().isMidCharacterInput()
 
     fun getTwoTouchWaitingRowKey(): KeyboardKey? = activeProcessor().getTwoTouchWaitingRowKey()
+
+    fun getCurrentEditorInfo(): EditorInfo? = currentEditorInfo
 
     fun setComposingFromConversion(text: String) {
         confirmedBuffer.clear()
@@ -323,6 +326,10 @@ class KeyboardInputCoordinator(
 
     override fun cancelToggleAutoCommit() {
         listener.cancelToggleAutoCommit()
+    }
+
+    override fun requestHideSoftInput() {
+        listener.requestHideSoftInput()
     }
 
     private fun activeProcessor(): InputProcessor = when (currentInputMode) {
