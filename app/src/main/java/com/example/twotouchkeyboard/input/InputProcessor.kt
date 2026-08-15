@@ -40,4 +40,5 @@ interface InputProcessorHost {
     fun commitDirectText(text: String)
     fun scheduleToggleAutoCommit(onTimeout: () -> Unit)
     fun cancelToggleAutoCommit()
+    fun requestHideSoftInput()
 }

@@ -16,6 +16,10 @@
     <string name="key_text_modifier_kana">゛゜小</string>
     <string name="key_text_modifier_alphabet">A/a</string>
     <string name="key_enter">↵</string>
+    <string name="key_go">Go</string>
+    <string name="key_search">検索</string>
+    <string name="key_next">次へ</string>
+    <string name="key_previous">前へ</string>
     <string name="key_space">Space</string>
     <string name="key_conversion">変換</string>
     <string name="key_confirm">確定</string>

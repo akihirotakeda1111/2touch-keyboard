@@ -52,7 +52,11 @@ abstract class BaseInputProcessor(
             host.clearComposingState()
             return
         }
-        ic.commitText("\n", 1)
+        when (val behavior = EnterBehaviorResolver.resolveEnterBehavior(editorInfo)) {
+            EnterBehavior.InsertNewline -> ic.commitText("\n", 1)
+            is EnterBehavior.PerformEditorAction -> ic.performEditorAction(behavior.action)
+            EnterBehavior.HideKeyboard -> host.requestHideSoftInput()
+        }
     }
 
     override fun isMidCharacterInput(): Boolean {
