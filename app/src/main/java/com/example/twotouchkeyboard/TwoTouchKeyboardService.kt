@@ -536,6 +536,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     private fun onComposingTextChanged(composingText: String) {
         if (!coordinator.isConversionEnabled()) {
             lastComposingTextForConversion = composingText
+            scheduleKeyLabelUpdate()
             return
         }
         if (!suppressConversionReset && composingText != lastComposingTextForConversion) {
@@ -548,6 +549,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
             updateComposingText(composingText)
             requestConversion(composingText)
         }
+        scheduleKeyLabelUpdate()
     }
 
     private fun updateComposingText(text: String) {
@@ -794,7 +796,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         if (key == KeyboardKey.Space && shouldShowConversionKey()) {
             return getString(R.string.key_conversion)
         }
-        if (key == KeyboardKey.Enter && conversionSession.isActive) {
+        if (key == KeyboardKey.Enter && shouldShowEnterConfirmLabel()) {
             return getString(R.string.key_confirm)
         }
         if (key == KeyboardKey.Enter) {
@@ -811,6 +813,11 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
             )
         }
         return coordinator.getKeyLabel(key)
+    }
+
+    private fun shouldShowEnterConfirmLabel(): Boolean {
+        if (conversionSession.isActive) return true
+        return coordinator.getComposingText().isNotEmpty()
     }
 
     private fun finalizeInputState() {
