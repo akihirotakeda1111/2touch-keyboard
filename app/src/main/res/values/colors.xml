@@ -9,6 +9,5 @@
     <color name="key_background">#FFFFFF</color>
     <color name="key_border">#BDBDBD</color>
     <color name="key_pressed_background">#BDBDBD</color>
-    <color name="key_waiting_highlight_background">#BBDEFB</color>
 </resources>
 

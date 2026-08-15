@@ -34,12 +34,6 @@ class HiraganaTwoTouchProcessor(
         }
     }
 
-    override fun getTwoTouchWaitingRowKey(): KeyboardKey? {
-        if (state != State.WAITING_VOWEL) return null
-        val row = (activeRow as? ActiveRow.Hiragana)?.row ?: return null
-        return rowKey(row)
-    }
-
     override fun hasPartialTwoTouchInput(): Boolean = state == State.WAITING_VOWEL
 
     override fun resetPartialInput() {
@@ -83,9 +77,6 @@ class HiraganaTwoTouchProcessor(
         if (state == State.WAITING_VOWEL) {
             activeRow?.let { active ->
                 if (active is ActiveRow.Hiragana) {
-                    if (active.row == number) {
-                        return idleLabelForRow(number)
-                    }
                     return TwoTouchExtensionSupport.waitingLabel(
                         row = active.row,
                         key = KeyboardKey.Digit(number),
@@ -96,16 +87,14 @@ class HiraganaTwoTouchProcessor(
             }
         }
 
-        return idleLabelForRow(number)
+        if (number !in 1..9) return number.toString()
+        return KeyboardMappings.hiraganaRowHeadLabels[number] ?: number.toString()
     }
 
     private fun labelForZero(): String {
         if (state == State.WAITING_VOWEL) {
             activeRow?.let { active ->
                 if (active is ActiveRow.Hiragana) {
-                    if (active.row == 0) {
-                        return idleLabelForRow(0)
-                    }
                     return TwoTouchExtensionSupport.waitingLabel(
                         row = active.row,
                         key = KeyboardKey.Zero,
@@ -116,18 +105,7 @@ class HiraganaTwoTouchProcessor(
             }
         }
 
-        return idleLabelForRow(0)
-    }
-
-    private fun idleLabelForRow(row: Int): String {
-        if (row !in 1..9) {
-            return KeyboardMappings.hiraganaRowHeadLabels[0] ?: "わ"
-        }
-        return KeyboardMappings.hiraganaRowHeadLabels[row] ?: row.toString()
-    }
-
-    private fun rowKey(row: Int): KeyboardKey {
-        return if (row == 0) KeyboardKey.Zero else KeyboardKey.Digit(row)
+        return KeyboardMappings.hiraganaRowHeadLabels[0] ?: "わ"
     }
 
     private fun transitionTo(newState: State, activeRow: ActiveRow?) {

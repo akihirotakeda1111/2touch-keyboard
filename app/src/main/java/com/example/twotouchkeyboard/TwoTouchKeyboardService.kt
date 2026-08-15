@@ -51,7 +51,6 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     private val keyButtons: MutableMap<KeyboardKey, Button> = mutableMapOf()
     private val displayedKeyLabels: MutableMap<KeyboardKey, String> = mutableMapOf()
     private lateinit var keyboardRootView: View
-    private var highlightedWaitingRowKey: KeyboardKey? = null
     private var labelUpdatePosted = false
     private var pendingForceAllLabels = false
     private lateinit var keyboardFlipper: ViewFlipper
@@ -734,21 +733,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     }
 
     private fun onKeyboardStateChanged(forceAllLabels: Boolean = false) {
-        updateTwoTouchWaitingHighlight()
         scheduleKeyLabelUpdate(forceAll = forceAllLabels)
-    }
-
-    private fun updateTwoTouchWaitingHighlight() {
-        val waitingRowKey = coordinator.getTwoTouchWaitingRowKey()
-        if (waitingRowKey == highlightedWaitingRowKey) return
-
-        highlightedWaitingRowKey?.let { previousKey ->
-            keyButtons[previousKey]?.isActivated = false
-        }
-        highlightedWaitingRowKey = waitingRowKey
-        waitingRowKey?.let { key ->
-            keyButtons[key]?.isActivated = true
-        }
     }
 
     private fun scheduleKeyLabelUpdate(forceAll: Boolean = false) {

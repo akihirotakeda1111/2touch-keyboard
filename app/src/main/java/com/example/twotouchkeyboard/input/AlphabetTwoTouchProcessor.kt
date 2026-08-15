@@ -31,12 +31,6 @@ class AlphabetTwoTouchProcessor(
         }
     }
 
-    override fun getTwoTouchWaitingRowKey(): KeyboardKey? {
-        if (state != State.WAITING_VOWEL) return null
-        val row = activeRow ?: return null
-        return rowKey(row)
-    }
-
     override fun toggleLastCharacterCase() {
         val last = host.getConfirmedBuffer().lastOrNull()?.takeIf { it.isLetter() } ?: return
         host.replaceLastConfirmedCharacter(toggleCase(last))
@@ -96,9 +90,6 @@ class AlphabetTwoTouchProcessor(
     private fun labelForDigit(number: Int): String {
         if (state == State.WAITING_VOWEL) {
             activeRow?.let { row ->
-                if (row == number) {
-                    return idleLabelForRow(number)
-                }
                 return TwoTouchExtensionSupport.waitingLabel(
                     row = row,
                     key = KeyboardKey.Digit(number),
@@ -110,15 +101,13 @@ class AlphabetTwoTouchProcessor(
             }
         }
 
-        return idleLabelForRow(number)
+        if (number !in 1..9) return number.toString()
+        return KeyboardMappings.alphabetTwoTouchIdleLabel(number) ?: number.toString()
     }
 
     private fun labelForZero(): String {
         if (state == State.WAITING_VOWEL) {
             activeRow?.let { row ->
-                if (row == 0) {
-                    return idleLabelForRow(0)
-                }
                 return TwoTouchExtensionSupport.waitingLabel(
                     row = row,
                     key = KeyboardKey.Zero,
@@ -130,16 +119,7 @@ class AlphabetTwoTouchProcessor(
             }
         }
 
-        return idleLabelForRow(0)
-    }
-
-    private fun idleLabelForRow(row: Int): String {
-        if (row !in 1..9) return "0"
-        return KeyboardMappings.alphabetTwoTouchIdleLabel(row) ?: row.toString()
-    }
-
-    private fun rowKey(row: Int): KeyboardKey {
-        return if (row == 0) KeyboardKey.Zero else KeyboardKey.Digit(row)
+        return "0"
     }
 
     private fun toggleCase(char: Char): Char {
