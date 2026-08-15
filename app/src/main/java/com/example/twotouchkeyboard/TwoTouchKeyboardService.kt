@@ -817,7 +817,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
 
     private fun shouldShowEnterConfirmLabel(): Boolean {
         if (conversionSession.isActive) return true
-        return coordinator.getComposingText().isNotEmpty()
+        return coordinator.getComposingPreview().isNotEmpty()
     }
 
     private fun finalizeInputState() {
