@@ -63,7 +63,7 @@ class DummyConversionEngine : ConversionEngine {
 
     override suspend fun suggestNext(
         mode: ConversionMode,
-        selectedCandidateIndex: Int?,
+        selectedCandidate: String?,
     ): List<String> {
         if (mode != ConversionMode.HIRAGANA) return emptyList()
         return listOf("を", "が", "に")

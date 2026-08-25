@@ -19,12 +19,12 @@ interface ConversionEngine {
 
     /**
      * Returns next-input (zero-query) suggestions after a commit.
-     * [selectedCandidateIndex] is the index in the last [convert] result when the user
-     * picked a conversion candidate; null when the raw composing text was committed.
+     * [selectedCandidate] is the conversion candidate the user picked; null when the
+     * raw composing text was committed via Enter.
      */
     suspend fun suggestNext(
         mode: ConversionMode,
-        selectedCandidateIndex: Int? = null,
+        selectedCandidate: String? = null,
     ): List<String> = emptyList()
 
     fun resetSession()

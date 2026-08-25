@@ -458,7 +458,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         suppressConversionReset = false
 
         if (hadComposing && shouldOfferNextInputSuggestion()) {
-            requestNextInputSuggestion(selectedCandidateIndex = null)
+            requestNextInputSuggestion(selectedCandidate = null)
         } else if (hadComposing) {
             resetConversionState()
         }
@@ -766,7 +766,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
             !coordinator.isMidCharacterInput()
     }
 
-    private fun requestNextInputSuggestion(selectedCandidateIndex: Int?) {
+    private fun requestNextInputSuggestion(selectedCandidate: String?) {
         if (!shouldOfferNextInputSuggestion()) {
             resetConversionState()
             return
@@ -774,6 +774,8 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
 
         conversionJob?.cancel()
         clearConversionSessionOnly()
+        candidateContainer.removeAllViews()
+        candidateScroll.visibility = View.GONE
         pendingNextInputSuggestion = true
         val requestToken = Any()
         pendingNextInputRequestToken = requestToken
@@ -782,7 +784,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
             val suggestions = withContext(Dispatchers.Default) {
                 conversionEngine.suggestNext(
                     mode = ConversionMode.HIRAGANA,
-                    selectedCandidateIndex = selectedCandidateIndex,
+                    selectedCandidate = selectedCandidate,
                 )
             }
             if (pendingNextInputRequestToken != requestToken) return@launch
@@ -851,9 +853,8 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
             conversionSession.resetConversionEnd(suffix.length)
             requestConversion(suffix, activateOnResult = true)
         } else {
-            val selectedIndex = conversionSession.getSelectedIndex()
             clearConversionSessionOnly()
-            requestNextInputSuggestion(selectedCandidateIndex = selectedIndex)
+            requestNextInputSuggestion(selectedCandidate = candidate)
         }
         suppressConversionReset = false
     }

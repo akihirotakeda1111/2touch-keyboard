@@ -33,12 +33,12 @@ class MozcConversionEngine private constructor(
 
     override suspend fun suggestNext(
         mode: ConversionMode,
-        selectedCandidateIndex: Int?,
+        selectedCandidate: String?,
     ): List<String> {
         if (mode != ConversionMode.HIRAGANA) return emptyList()
         return mutex.withLock {
             withContext(Dispatchers.Default) {
-                session.suggestNext(mode, selectedCandidateIndex)
+                session.suggestNext(mode, selectedCandidate)
             }
         }
     }

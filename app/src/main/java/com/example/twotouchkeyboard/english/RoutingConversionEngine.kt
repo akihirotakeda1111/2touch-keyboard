@@ -23,10 +23,10 @@ class RoutingConversionEngine(
 
     override suspend fun suggestNext(
         mode: ConversionMode,
-        selectedCandidateIndex: Int?,
+        selectedCandidate: String?,
     ): List<String> {
         return when (mode) {
-            ConversionMode.HIRAGANA -> japaneseEngine.suggestNext(mode, selectedCandidateIndex)
+            ConversionMode.HIRAGANA -> japaneseEngine.suggestNext(mode, selectedCandidate)
             ConversionMode.ALPHABET, ConversionMode.NUMBER -> emptyList()
         }
     }
