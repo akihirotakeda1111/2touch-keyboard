@@ -148,26 +148,36 @@ class MozcSession private constructor(
     }
 
     private fun submitSession(): Output {
-        sendCommand(SessionCommand.CommandType.SUBMIT)
-        return requestNextWordPrediction()
+        val submitOutput = sendCommand(SessionCommand.CommandType.SUBMIT)
+        return resolveNextWordOutput(submitOutput)
     }
 
     private fun submitCandidate(candidateId: Int): Output {
-        sendCommand(SessionCommand.CommandType.SUBMIT_CANDIDATE, candidateId)
-        return requestNextWordPrediction()
+        val submitOutput = sendCommand(SessionCommand.CommandType.SUBMIT_CANDIDATE, candidateId)
+        return resolveNextWordOutput(submitOutput)
     }
 
     private fun requestNextWordPrediction(): Output {
+        return resolveNextWordOutput(commitOutput = null)
+    }
+
+    /**
+     * Prefer zero-query candidates returned by commit commands. REQUEST_NWP is tried last
+     * because it resets converter history and expects surrounding text from the client.
+     */
+    private fun resolveNextWordOutput(commitOutput: Output?): Output {
+        if (commitOutput != null && hasSuggestionCandidates(commitOutput)) {
+            return commitOutput
+        }
+        val statusOutput = sendCommand(SessionCommand.CommandType.GET_STATUS)
+        if (hasSuggestionCandidates(statusOutput)) {
+            return statusOutput
+        }
         val nwpOutput = sendCommand(SessionCommand.CommandType.REQUEST_NWP)
         if (hasSuggestionCandidates(nwpOutput)) {
             return nwpOutput
         }
-        val statusOutput = sendCommand(SessionCommand.CommandType.GET_STATUS)
-        return if (hasSuggestionCandidates(statusOutput)) {
-            statusOutput
-        } else {
-            Output.getDefaultInstance()
-        }
+        return Output.getDefaultInstance()
     }
 
     private fun sendCommand(type: SessionCommand.CommandType, candidateId: Int? = null): Output {
