@@ -25,6 +25,8 @@ class MozcSession private constructor(
 ) {
     private var lastMozcInput: String = ""
     private var lastMode: ConversionMode? = null
+    private var lastCandidateIds: List<Int> = emptyList()
+    private var lastCandidateIdByValue: Map<String, Int> = emptyMap()
 
     fun convert(input: String, mode: ConversionMode): List<String> {
         if (input.isEmpty()) {
@@ -63,13 +65,40 @@ class MozcSession private constructor(
 
         lastMozcInput = mozcInput
         lastMode = mode
+        lastCandidateIds = extractCandidateIds(output)
+        lastCandidateIdByValue = extractCandidateIdByValue(output)
         return extractCandidates(output, input, mode)
+    }
+
+    fun suggestNext(mode: ConversionMode, selectedCandidate: String?): List<String> {
+        if (mode != ConversionMode.HIRAGANA) return emptyList()
+
+        ensureMode(mode)
+        val hadComposition = lastMozcInput.isNotEmpty()
+        val output = when {
+            hadComposition && !selectedCandidate.isNullOrEmpty() -> {
+                val candidateId = lastCandidateIdByValue[selectedCandidate]
+                if (candidateId != null) {
+                    submitCandidate(candidateId)
+                } else {
+                    submitSession()
+                }
+            }
+            hadComposition -> submitSession()
+            else -> requestNextWordPrediction()
+        }
+        lastMozcInput = ""
+        lastCandidateIds = emptyList()
+        lastCandidateIdByValue = emptyMap()
+        return extractSuggestionCandidates(output)
     }
 
     fun resetSession() {
         resetContext()
         lastMozcInput = ""
         lastMode = null
+        lastCandidateIds = emptyList()
+        lastCandidateIdByValue = emptyMap()
     }
 
     fun addUserHistory(key: String, value: String) {
@@ -102,6 +131,8 @@ class MozcSession private constructor(
         sessionId = INVALID_SESSION_ID
         lastMozcInput = ""
         lastMode = null
+        lastCandidateIds = emptyList()
+        lastCandidateIdByValue = emptyMap()
     }
 
     private fun ensureMode(mode: ConversionMode) {
@@ -112,6 +143,53 @@ class MozcSession private constructor(
         switchCompositionMode(mode)
         lastMozcInput = ""
         lastMode = mode
+        lastCandidateIds = emptyList()
+        lastCandidateIdByValue = emptyMap()
+    }
+
+    private fun submitSession(): Output {
+        val submitOutput = sendCommand(SessionCommand.CommandType.SUBMIT)
+        return resolveNextWordOutput(submitOutput)
+    }
+
+    private fun submitCandidate(candidateId: Int): Output {
+        val submitOutput = sendCommand(SessionCommand.CommandType.SUBMIT_CANDIDATE, candidateId)
+        return resolveNextWordOutput(submitOutput)
+    }
+
+    private fun requestNextWordPrediction(): Output {
+        return resolveNextWordOutput(commitOutput = null)
+    }
+
+    /**
+     * Prefer zero-query candidates returned by commit commands. REQUEST_NWP is tried last
+     * because it resets converter history and expects surrounding text from the client.
+     */
+    private fun resolveNextWordOutput(commitOutput: Output?): Output {
+        if (commitOutput != null && hasSuggestionCandidates(commitOutput)) {
+            return commitOutput
+        }
+        val statusOutput = sendCommand(SessionCommand.CommandType.GET_STATUS)
+        if (hasSuggestionCandidates(statusOutput)) {
+            return statusOutput
+        }
+        val nwpOutput = sendCommand(SessionCommand.CommandType.REQUEST_NWP)
+        if (hasSuggestionCandidates(nwpOutput)) {
+            return nwpOutput
+        }
+        return Output.getDefaultInstance()
+    }
+
+    private fun sendCommand(type: SessionCommand.CommandType, candidateId: Int? = null): Output {
+        val commandBuilder = SessionCommand.newBuilder().setType(type)
+        candidateId?.let { commandBuilder.setId(it) }
+        return evaluate(
+            Input.newBuilder()
+                .setId(sessionId)
+                .setType(Input.CommandType.SEND_COMMAND)
+                .setCommand(commandBuilder)
+                .build(),
+        ).output
     }
 
     private fun normalizeInput(input: String, mode: ConversionMode): String {
@@ -359,11 +437,36 @@ class MozcSession private constructor(
             return Command.parseFrom(responseBytes)
         }
 
-        private fun extractCandidates(
-            output: Output,
-            fallbackInput: String,
-            mode: ConversionMode,
-        ): List<String> {
+        private fun extractCandidateIdByValue(output: Output): Map<String, Int> {
+            val map = linkedMapOf<String, Int>()
+
+            if (output.hasAllCandidateWords()) {
+                output.allCandidateWords.candidatesList.forEach { word ->
+                    if (word.value.isNotEmpty() && word.hasId()) {
+                        map[word.value] = word.id
+                    }
+                }
+            }
+
+            if (output.hasCandidateWindow()) {
+                output.candidateWindow.candidateList.forEach { candidate ->
+                    if (candidate.value.isNotEmpty() && candidate.hasId()) {
+                        map.putIfAbsent(candidate.value, candidate.id)
+                    }
+                }
+            }
+
+            return map
+        }
+
+        private fun extractCandidateIds(output: Output): List<Int> {
+            if (!output.hasCandidateWindow()) return emptyList()
+            return output.candidateWindow.candidateList.mapNotNull { candidate ->
+                if (candidate.hasId()) candidate.id else null
+            }
+        }
+
+        private fun extractCandidateValues(output: Output): List<String> {
             val candidates = linkedSetOf<String>()
 
             if (output.hasAllCandidateWords()) {
@@ -384,6 +487,24 @@ class MozcSession private constructor(
                 }
             }
 
+            return candidates.toList()
+        }
+
+        private fun extractSuggestionCandidates(output: Output): List<String> {
+            return extractCandidateValues(output)
+        }
+
+        private fun hasSuggestionCandidates(output: Output): Boolean {
+            return extractCandidateValues(output).isNotEmpty()
+        }
+
+        private fun extractCandidates(
+            output: Output,
+            fallbackInput: String,
+            mode: ConversionMode,
+        ): List<String> {
+            val candidates = extractCandidateValues(output).toMutableList()
+
             if (candidates.isEmpty() && output.hasPreedit()) {
                 val preedit = output.preedit.segmentList.joinToString("") { it.value }
                 if (preedit.isNotEmpty()) {
@@ -397,14 +518,14 @@ class MozcSession private constructor(
 
             return when (mode) {
                 ConversionMode.ALPHABET -> AlphabetPredictionSupport.prepareEnglishCandidates(
-                    candidates.toList(),
+                    candidates,
                     fallbackInput,
                 )
                 else -> {
                     if (candidates.isEmpty()) {
                         listOf(fallbackInput)
                     } else {
-                        candidates.toList()
+                        candidates
                     }
                 }
             }

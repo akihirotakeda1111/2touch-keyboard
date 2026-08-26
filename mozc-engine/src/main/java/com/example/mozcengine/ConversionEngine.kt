@@ -17,6 +17,16 @@ interface ConversionEngine {
 
     suspend fun convert(input: String, mode: ConversionMode): List<String>
 
+    /**
+     * Returns next-input (zero-query) suggestions after a commit.
+     * [selectedCandidate] is the conversion candidate the user picked; null when the
+     * raw composing text was committed via Enter.
+     */
+    suspend fun suggestNext(
+        mode: ConversionMode,
+        selectedCandidate: String? = null,
+    ): List<String> = emptyList()
+
     fun resetSession()
 
     fun close()

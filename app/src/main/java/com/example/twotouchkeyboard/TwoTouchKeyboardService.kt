@@ -22,6 +22,7 @@ import androidx.lifecycle.LifecycleRegistry
 import androidx.lifecycle.lifecycleScope
 import com.example.mozcengine.ConversionEngine
 import com.example.mozcengine.AlphabetPredictionSupport
+import com.example.mozcengine.ConversionMode
 import com.example.twotouchkeyboard.candidate.CandidateLearningCoordinator
 import com.example.twotouchkeyboard.candidate.CandidateUsageContext
 import com.example.twotouchkeyboard.candidate.EnglishCandidateUsageStore
@@ -64,6 +65,8 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     private var settingsCollectJob: Job? = null
 
     private val conversionSession = ConversionSession()
+    private val nextInputSuggestionSession = NextInputSuggestionSession()
+    private var pendingNextInputSuggestion = false
     private var pendingConversionActivation = false
     private var lastComposingTextForConversion = ""
     private var suppressConversionReset = false
@@ -322,6 +325,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
 
     private fun performDeleteKeyAction() {
         coordinator.bindInputConnection(currentInputConnection)
+        dismissNextInputSuggestionForKey(KeyboardKey.Delete)
         if (canHandleConversionKey(KeyboardKey.Delete) && handleConversionKey(KeyboardKey.Delete)) {
             return
         }
@@ -330,6 +334,8 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
 
     private fun dispatchKey(key: KeyboardKey) {
         coordinator.bindInputConnection(currentInputConnection)
+
+        dismissNextInputSuggestionForKey(key)
 
         if (key == KeyboardKey.Hash) {
             openSymbolKeyboard()
@@ -365,7 +371,38 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         }
     }
 
+    private fun dismissesNextInputSuggestion(key: KeyboardKey): Boolean {
+        return when (key) {
+            is KeyboardKey.Digit,
+            KeyboardKey.Zero,
+            KeyboardKey.Star,
+            KeyboardKey.TextModifier,
+            KeyboardKey.Space,
+            KeyboardKey.Hash,
+            KeyboardKey.Delete,
+            KeyboardKey.Enter,
+            KeyboardKey.CursorLeft,
+            KeyboardKey.CursorRight,
+            -> true
+            else -> false
+        }
+    }
+
+    private fun dismissNextInputSuggestionForKey(key: KeyboardKey) {
+        if (!dismissesNextInputSuggestion(key)) return
+        if (!pendingNextInputSuggestion && !nextInputSuggestionSession.isActive) return
+
+        invalidatePendingNextInputSuggestion()
+        clearNextInputSuggestion()
+    }
+
+    private fun invalidatePendingNextInputSuggestion() {
+        pendingNextInputRequestToken = null
+        pendingNextInputSuggestion = false
+    }
+
     private fun canHandleConversionKey(key: KeyboardKey): Boolean {
+        if (nextInputSuggestionSession.isActive) return false
         if (!coordinator.isConversionEnabled()) return false
         if (!isPredictionConversionMode()) return false
         if (coordinator.getComposingText().isEmpty()) return false
@@ -430,7 +467,17 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
                 return
             }
         }
+
+        val hadComposing = coordinator.getComposingText().isNotEmpty()
+        suppressConversionReset = true
         coordinator.onEnter()
+        suppressConversionReset = false
+
+        if (hadComposing && shouldOfferNextInputSuggestion()) {
+            requestNextInputSuggestion(selectedCandidate = null)
+        } else if (hadComposing) {
+            resetConversionState()
+        }
     }
 
     private fun handleDeleteKey() {
@@ -497,9 +544,25 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     }
 
     private fun refreshConversionUi() {
+        if (nextInputSuggestionSession.isActive) {
+            updateNextInputSuggestionUi()
+            scheduleKeyLabelUpdate()
+            return
+        }
+
         updateConversionHint()
         updateCandidateUi(conversionSession.getCandidates())
         scheduleKeyLabelUpdate()
+    }
+
+    private fun updateNextInputSuggestionUi() {
+        conversionHint.text = getString(R.string.next_input_hint)
+        conversionHint.isVisible = true
+        updateCandidateUi(
+            candidates = nextInputSuggestionSession.getCandidates(),
+            onCandidateSelected = ::applyNextInputSuggestion,
+            highlightSelection = false,
+        )
     }
 
     private fun updateConversionHint() {
@@ -546,7 +609,13 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         lastComposingTextForConversion = composingText
         if (!suppressConversionReset) {
             updateComposingText(composingText)
-            requestConversion(composingText)
+            if (composingText.isEmpty()) {
+                if (!pendingNextInputSuggestion && !nextInputSuggestionSession.isActive) {
+                    resetConversionState()
+                }
+            } else {
+                requestConversion(composingText)
+            }
         }
         scheduleKeyLabelUpdate()
     }
@@ -567,8 +636,13 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
             return
         }
         conversionJob?.cancel()
+        if (composing.isNotEmpty()) {
+            invalidatePendingNextInputSuggestion()
+        }
         if (composing.isEmpty()) {
-            resetConversionState()
+            if (!pendingNextInputSuggestion && !nextInputSuggestionSession.isActive) {
+                resetConversionState()
+            }
             return
         }
 
@@ -616,7 +690,11 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         return composing
     }
 
-    private fun updateCandidateUi(candidates: List<String>) {
+    private fun updateCandidateUi(
+        candidates: List<String>,
+        onCandidateSelected: (String) -> Unit = ::applyPartialConversionFromUi,
+        highlightSelection: Boolean = true,
+    ) {
         candidateContainer.removeAllViews()
         if (candidates.isEmpty()) {
             candidateScroll.visibility = View.GONE
@@ -624,14 +702,14 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         }
 
         val inflater = LayoutInflater.from(this)
-        val selectedIndex = conversionSession.getSelectedIndex()
+        val selectedIndex = if (highlightSelection) conversionSession.getSelectedIndex() else -1
 
         candidates.forEachIndexed { index, candidate ->
             val itemView = inflater.inflate(R.layout.suggest_item, candidateContainer, false)
             val textView = itemView.findViewById<TextView>(R.id.candidate_text)
             textView.text = candidate
 
-            if (conversionSession.isActive && index == selectedIndex) {
+            if (highlightSelection && conversionSession.isActive && index == selectedIndex) {
                 itemView.setBackgroundColor(
                     ContextCompat.getColor(this, R.color.candidate_selected_background),
                 )
@@ -646,17 +724,15 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
             }
 
             textView.setOnClickListener {
-                val composing = coordinator.getComposingText()
-                if (!conversionSession.isActive && conversionSession.getCandidates().isNotEmpty()) {
-                    conversionSession.activate(composing.length)
-                }
-                applyPartialConversion(candidate)
+                onCandidateSelected(candidate)
             }
             candidateContainer.addView(itemView)
         }
 
         candidateScroll.visibility = View.VISIBLE
-        scrollToSelectedCandidate(selectedIndex)
+        if (selectedIndex >= 0) {
+            scrollToSelectedCandidate(selectedIndex)
+        }
     }
 
     private fun scrollToSelectedCandidate(selectedIndex: Int) {
@@ -667,12 +743,32 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         }
     }
 
+    private fun clearConversionSessionOnly() {
+        conversionSession.clear()
+        pendingConversionActivation = false
+        conversionHint.isVisible = false
+    }
+
+    private fun clearNextInputSuggestion() {
+        nextInputSuggestionSession.clear()
+        if (conversionSession.getCandidates().isEmpty()) {
+            candidateContainer.removeAllViews()
+            candidateScroll.visibility = View.GONE
+            conversionHint.isVisible = false
+        } else {
+            refreshConversionUi()
+        }
+        scheduleKeyLabelUpdate()
+    }
+
     private fun resetConversionState() {
         conversionJob?.cancel()
+        invalidatePendingNextInputSuggestion()
         if (::conversionEngine.isInitialized) {
             conversionEngine.resetSession()
         }
         conversionSession.clear()
+        nextInputSuggestionSession.clear()
         pendingConversionActivation = false
         lastComposingTextForConversion = ""
         conversionHint.isVisible = false
@@ -681,6 +777,72 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         if (keyButtons.isNotEmpty()) {
             scheduleKeyLabelUpdate()
         }
+    }
+
+    private fun shouldOfferNextInputSuggestion(): Boolean {
+        return coordinator.isConversionEnabled() &&
+            coordinator.getInputMode() == InputMode.HIRAGANA &&
+            !coordinator.isMidCharacterInput()
+    }
+
+    private fun requestNextInputSuggestion(selectedCandidate: String?) {
+        if (!shouldOfferNextInputSuggestion()) {
+            resetConversionState()
+            return
+        }
+
+        conversionJob?.cancel()
+        clearConversionSessionOnly()
+        candidateContainer.removeAllViews()
+        candidateScroll.visibility = View.GONE
+        pendingNextInputSuggestion = true
+        val requestToken = Any()
+        pendingNextInputRequestToken = requestToken
+
+        conversionJob = conversionScope.launch {
+            try {
+                val suggestions = withContext(Dispatchers.Default) {
+                    conversionEngine.suggestNext(
+                        mode = ConversionMode.HIRAGANA,
+                        selectedCandidate = selectedCandidate,
+                    )
+                }
+                if (pendingNextInputRequestToken != requestToken) return@launch
+
+                if (coordinator.getComposingText().isNotEmpty()) {
+                    return@launch
+                }
+
+                if (suggestions.isEmpty()) {
+                    clearNextInputSuggestion()
+                    return@launch
+                }
+
+                nextInputSuggestionSession.setCandidates(suggestions)
+                refreshConversionUi()
+            } finally {
+                if (pendingNextInputRequestToken == requestToken) {
+                    pendingNextInputSuggestion = false
+                }
+            }
+        }
+    }
+
+    private var pendingNextInputRequestToken: Any? = null
+
+    private fun applyNextInputSuggestion(candidate: String) {
+        val inputConnection = currentInputConnection ?: return
+        inputConnection.commitText(candidate, 1)
+        clearNextInputSuggestion()
+        conversionEngine.resetSession()
+    }
+
+    private fun applyPartialConversionFromUi(candidate: String) {
+        val composing = coordinator.getComposingText()
+        if (!conversionSession.isActive && conversionSession.getCandidates().isNotEmpty()) {
+            conversionSession.activate(composing.length)
+        }
+        applyPartialConversion(candidate)
     }
 
     private fun applyPartialConversion(candidate: String) {
@@ -715,7 +877,8 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
             conversionSession.resetConversionEnd(suffix.length)
             requestConversion(suffix, activateOnResult = true)
         } else {
-            resetConversionState()
+            clearConversionSessionOnly()
+            requestNextInputSuggestion(selectedCandidate = candidate)
         }
         suppressConversionReset = false
     }

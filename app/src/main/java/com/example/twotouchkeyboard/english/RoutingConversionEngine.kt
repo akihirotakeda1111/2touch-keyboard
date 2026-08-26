@@ -21,6 +21,16 @@ class RoutingConversionEngine(
         }
     }
 
+    override suspend fun suggestNext(
+        mode: ConversionMode,
+        selectedCandidate: String?,
+    ): List<String> {
+        return when (mode) {
+            ConversionMode.HIRAGANA -> japaneseEngine.suggestNext(mode, selectedCandidate)
+            ConversionMode.ALPHABET, ConversionMode.NUMBER -> emptyList()
+        }
+    }
+
     override fun resetSession() {
         japaneseEngine.resetSession()
         englishEngine.resetSession()

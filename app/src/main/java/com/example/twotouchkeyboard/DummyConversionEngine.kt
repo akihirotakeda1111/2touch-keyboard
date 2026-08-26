@@ -61,6 +61,14 @@ class DummyConversionEngine : ConversionEngine {
 
     override fun resetSession() = Unit
 
+    override suspend fun suggestNext(
+        mode: ConversionMode,
+        selectedCandidate: String?,
+    ): List<String> {
+        if (mode != ConversionMode.HIRAGANA) return emptyList()
+        return listOf("を", "が", "に")
+    }
+
     private fun lookupHiraganaCandidates(input: String): List<String> {
         CANDIDATE_MAP[input]?.let { return it }
 
