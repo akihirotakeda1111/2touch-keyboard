@@ -35,7 +35,7 @@ class AlphabetToggleProcessor(
                 getToggleDigitLabel(
                     number = key.number,
                     rowChars = rowChars,
-                    idleHeadLabels = KeyboardMappings.alphabetRowHeadLabels,
+                    idleHeadLabels = KeyboardMappings.alphabetRows,
                     validIdleRange = 1..9,
                 )
             }
