@@ -325,6 +325,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
 
     private fun performDeleteKeyAction() {
         coordinator.bindInputConnection(currentInputConnection)
+        dismissNextInputSuggestionForKey(KeyboardKey.Delete)
         if (canHandleConversionKey(KeyboardKey.Delete) && handleConversionKey(KeyboardKey.Delete)) {
             return
         }
@@ -334,9 +335,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     private fun dispatchKey(key: KeyboardKey) {
         coordinator.bindInputConnection(currentInputConnection)
 
-        if (nextInputSuggestionSession.isActive && dismissesNextInputSuggestion(key)) {
-            clearNextInputSuggestion()
-        }
+        dismissNextInputSuggestionForKey(key)
 
         if (key == KeyboardKey.Hash) {
             openSymbolKeyboard()
@@ -380,9 +379,26 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
             KeyboardKey.TextModifier,
             KeyboardKey.Space,
             KeyboardKey.Hash,
+            KeyboardKey.Delete,
+            KeyboardKey.Enter,
+            KeyboardKey.CursorLeft,
+            KeyboardKey.CursorRight,
             -> true
             else -> false
         }
+    }
+
+    private fun dismissNextInputSuggestionForKey(key: KeyboardKey) {
+        if (!dismissesNextInputSuggestion(key)) return
+        if (!pendingNextInputSuggestion && !nextInputSuggestionSession.isActive) return
+
+        invalidatePendingNextInputSuggestion()
+        clearNextInputSuggestion()
+    }
+
+    private fun invalidatePendingNextInputSuggestion() {
+        pendingNextInputRequestToken = null
+        pendingNextInputSuggestion = false
     }
 
     private fun canHandleConversionKey(key: KeyboardKey): Boolean {
@@ -620,6 +636,9 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
             return
         }
         conversionJob?.cancel()
+        if (composing.isNotEmpty()) {
+            invalidatePendingNextInputSuggestion()
+        }
         if (composing.isEmpty()) {
             if (!pendingNextInputSuggestion && !nextInputSuggestionSession.isActive) {
                 resetConversionState()
@@ -744,7 +763,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
 
     private fun resetConversionState() {
         conversionJob?.cancel()
-        pendingNextInputSuggestion = false
+        invalidatePendingNextInputSuggestion()
         if (::conversionEngine.isInitialized) {
             conversionEngine.resetSession()
         }
@@ -781,26 +800,31 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         pendingNextInputRequestToken = requestToken
 
         conversionJob = conversionScope.launch {
-            val suggestions = withContext(Dispatchers.Default) {
-                conversionEngine.suggestNext(
-                    mode = ConversionMode.HIRAGANA,
-                    selectedCandidate = selectedCandidate,
-                )
-            }
-            if (pendingNextInputRequestToken != requestToken) return@launch
-            pendingNextInputSuggestion = false
+            try {
+                val suggestions = withContext(Dispatchers.Default) {
+                    conversionEngine.suggestNext(
+                        mode = ConversionMode.HIRAGANA,
+                        selectedCandidate = selectedCandidate,
+                    )
+                }
+                if (pendingNextInputRequestToken != requestToken) return@launch
 
-            if (coordinator.getComposingText().isNotEmpty()) {
-                return@launch
-            }
+                if (coordinator.getComposingText().isNotEmpty()) {
+                    return@launch
+                }
 
-            if (suggestions.isEmpty()) {
-                clearNextInputSuggestion()
-                return@launch
-            }
+                if (suggestions.isEmpty()) {
+                    clearNextInputSuggestion()
+                    return@launch
+                }
 
-            nextInputSuggestionSession.setCandidates(suggestions)
-            refreshConversionUi()
+                nextInputSuggestionSession.setCandidates(suggestions)
+                refreshConversionUi()
+            } finally {
+                if (pendingNextInputRequestToken == requestToken) {
+                    pendingNextInputSuggestion = false
+                }
+            }
         }
     }
 
