@@ -38,17 +38,15 @@ class CandidateRankerTest {
     }
 
     @Test
-    fun rank_passesThroughJapaneseCandidates() {
-        val candidates = listOf("あい", "愛", "藍")
-
+    fun rank_prioritizesJapaneseCandidatesMatchingInputLength() {
         val ranked = CandidateRanker.rank(
             mode = InputMode.HIRAGANA,
             contextKey = "あい",
-            candidates = candidates,
+            candidates = listOf("愛", "合い", "藍", "相手"),
             getUsageCount = { _, _ -> 100 },
         )
 
-        assertEquals(candidates, ranked)
+        assertEquals(listOf("合い", "相手", "愛", "藍"), ranked)
     }
 
     @Test

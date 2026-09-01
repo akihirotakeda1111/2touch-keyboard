@@ -521,6 +521,14 @@ class MozcSession private constructor(
                     candidates,
                     fallbackInput,
                 )
+                ConversionMode.HIRAGANA -> {
+                    val hiraganaCandidates = if (candidates.isEmpty()) {
+                        listOf(fallbackInput)
+                    } else {
+                        candidates
+                    }
+                    HiraganaPredictionSupport.rankCandidates(hiraganaCandidates, fallbackInput)
+                }
                 else -> {
                     if (candidates.isEmpty()) {
                         listOf(fallbackInput)
