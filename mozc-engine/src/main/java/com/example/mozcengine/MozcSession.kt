@@ -466,14 +466,19 @@ class MozcSession private constructor(
             }
         }
 
-        private fun extractCandidateValues(output: Output): List<String> {
-            val candidates = linkedSetOf<String>()
+        private data class ExtractedCandidate(
+            val value: String,
+            val reading: String,
+        )
+
+        private fun extractCandidateEntries(output: Output): List<ExtractedCandidate> {
+            val candidates = linkedMapOf<String, String>()
 
             if (output.hasAllCandidateWords()) {
                 output.allCandidateWords.candidatesList.forEach { word ->
                     val value = word.value
                     if (value.isNotEmpty()) {
-                        candidates.add(value)
+                        candidates.putIfAbsent(value, word.key.orEmpty())
                     }
                 }
             }
@@ -482,12 +487,16 @@ class MozcSession private constructor(
                 output.candidateWindow.candidateList.forEach { candidate ->
                     val value = candidate.value
                     if (value.isNotEmpty()) {
-                        candidates.add(value)
+                        candidates.putIfAbsent(value, "")
                     }
                 }
             }
 
-            return candidates.toList()
+            return candidates.map { (value, reading) -> ExtractedCandidate(value, reading) }
+        }
+
+        private fun extractCandidateValues(output: Output): List<String> {
+            return extractCandidateEntries(output).map { it.value }
         }
 
         private fun extractSuggestionCandidates(output: Output): List<String> {
@@ -503,31 +512,36 @@ class MozcSession private constructor(
             fallbackInput: String,
             mode: ConversionMode,
         ): List<String> {
-            val candidates = extractCandidateValues(output).toMutableList()
+            val entries = extractCandidateEntries(output).toMutableList()
 
-            if (candidates.isEmpty() && output.hasPreedit()) {
+            if (entries.isEmpty() && output.hasPreedit()) {
                 val preedit = output.preedit.segmentList.joinToString("") { it.value }
                 if (preedit.isNotEmpty()) {
                     val includePreedit = mode != ConversionMode.ALPHABET ||
                         AlphabetPredictionSupport.isEnglishWordCandidate(preedit)
                     if (includePreedit) {
-                        candidates.add(preedit)
+                        entries.add(ExtractedCandidate(preedit, fallbackInput))
                     }
                 }
             }
 
+            val candidates = entries.map { it.value }
             return when (mode) {
                 ConversionMode.ALPHABET -> AlphabetPredictionSupport.prepareEnglishCandidates(
                     candidates,
                     fallbackInput,
                 )
                 ConversionMode.HIRAGANA -> {
-                    val hiraganaCandidates = if (candidates.isEmpty()) {
-                        listOf(fallbackInput)
+                    val hiraganaEntries = if (entries.isEmpty()) {
+                        listOf(ExtractedCandidate(fallbackInput, fallbackInput))
                     } else {
-                        candidates
+                        entries
                     }
-                    HiraganaPredictionSupport.rankCandidates(hiraganaCandidates, fallbackInput)
+                    HiraganaPredictionSupport.rankCandidates(
+                        hiraganaEntries.map { it.value },
+                        fallbackInput,
+                        hiraganaEntries.map { it.reading },
+                    )
                 }
                 else -> {
                     if (candidates.isEmpty()) {
