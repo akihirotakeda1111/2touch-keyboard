@@ -1,7 +1,7 @@
 package com.example.twotouchkeyboard
 
 /**
- * かな修飾（濁点・半濁点・小文字）の変換表。
+ * かな修飾（小文字・濁点・半濁点）の変換表。
  */
 object KanaModifier {
 
@@ -53,14 +53,14 @@ object KanaModifier {
 
     private fun buildCycleForBase(base: Char): List<Char> {
         val forms = mutableListOf(base)
+        applySmallKana(base)?.let { small ->
+            if (small !in forms) forms.add(small)
+        }
         applyDakuten(base)?.let { dakuten ->
             if (dakuten !in forms) forms.add(dakuten)
         }
         applyHandakuten(base)?.let { handakuten ->
             if (handakuten !in forms) forms.add(handakuten)
-        }
-        applySmallKana(base)?.let { small ->
-            if (small !in forms) forms.add(small)
         }
         return forms
     }
