@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import com.example.mozcengine.ConversionEngine
 import com.example.mozcengine.ConversionMode
+import com.example.mozcengine.HiraganaPredictionSupport
 import com.example.mozcengine.MozcConversionEngine
 import com.example.mozcengine.MozcSession
 import com.example.twotouchkeyboard.english.EnglishDictionaryConversionEngine
@@ -51,7 +52,10 @@ class DummyConversionEngine : ConversionEngine {
         delay(100)
         if (input.isEmpty()) return emptyList()
         return when (mode) {
-            ConversionMode.HIRAGANA -> lookupHiraganaCandidates(input)
+            ConversionMode.HIRAGANA -> HiraganaPredictionSupport.rankCandidates(
+                lookupHiraganaCandidates(input),
+                input,
+            )
             ConversionMode.ALPHABET -> emptyList()
             ConversionMode.NUMBER -> listOf(input)
         }

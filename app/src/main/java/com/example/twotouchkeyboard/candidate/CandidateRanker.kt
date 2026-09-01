@@ -1,13 +1,14 @@
 package com.example.twotouchkeyboard.candidate
 
 import com.example.mozcengine.AlphabetPredictionSupport
+import com.example.mozcengine.HiraganaPredictionSupport
 import com.example.twotouchkeyboard.InputMode
 
 /**
- * Ranks conversion candidates using usage frequency.
+ * Ranks conversion candidates using usage frequency and Japanese same-length priority.
  *
- * This is the unified entry point for Option 4. Japanese mode currently passes
- * candidates through unchanged because Mozc handles ranking via user history.
+ * Japanese predictive conversion prefers candidates whose length matches the input.
+ * English ranking uses learned usage counts.
  */
 object CandidateRanker {
 
@@ -19,7 +20,8 @@ object CandidateRanker {
     ): List<String> {
         return when (mode) {
             InputMode.ALPHABET -> rankByUsage(contextKey, candidates, getUsageCount)
-            else -> candidates
+            InputMode.HIRAGANA -> HiraganaPredictionSupport.rankCandidates(candidates, contextKey)
+            InputMode.NUMBER -> candidates
         }
     }
 
