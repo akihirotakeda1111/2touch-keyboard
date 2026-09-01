@@ -125,6 +125,12 @@ class KeyboardCandidateBarLayoutTest {
         assertEquals(expected, (background as ColorDrawable).color)
     }
 
+    @Test
+    fun candidateBarSlot_isAdjacentToKeyboardPanel() {
+        layoutKeyboard()
+        assertEquals(candidateBarSlot.bottom, keyboardPanel.top)
+    }
+
     private fun measuredHintHeight(fontScale: Float): Int {
         return measuredHintHeight(contextForFontScale(fontScale))
     }
@@ -161,6 +167,11 @@ class KeyboardCandidateBarLayoutTest {
 
     private fun measureKeyboard() {
         measure(keyboardView)
+    }
+
+    private fun layoutKeyboard() {
+        measureKeyboard()
+        keyboardView.layout(0, 0, keyboardView.measuredWidth, keyboardView.measuredHeight)
     }
 
     private fun measure(view: View) {

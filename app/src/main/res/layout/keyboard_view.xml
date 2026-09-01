@@ -10,7 +10,6 @@
         android:id="@+id/candidate_bar_slot"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="@dimen/candidate_bar_margin_bottom"
         android:background="@android:color/transparent"
         android:orientation="vertical">
 

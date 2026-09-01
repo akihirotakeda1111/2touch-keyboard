@@ -12,5 +12,4 @@
     <!-- 候補バーは常時高さを確保し、空のときは透過する（IME リサイズによるタップ欠落を防ぐ） -->
     <dimen name="conversion_hint_height">20sp</dimen>
     <dimen name="candidate_bar_height">48dp</dimen>
-    <dimen name="candidate_bar_margin_bottom">8dp</dimen>
 </resources>
