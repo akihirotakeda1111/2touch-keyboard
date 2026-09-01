@@ -60,4 +60,24 @@ class HiraganaPredictionSupportTest {
 
         assertEquals(candidates, ranked)
     }
+
+    @Test
+    fun rankCandidates_countsSupplementaryPlaneCharactersAsOne() {
+        val ranked = HiraganaPredictionSupport.rankCandidates(
+            candidates = listOf("𠮷", "吉", "良し", "由"),
+            input = "よし",
+        )
+
+        assertEquals(listOf("良し", "𠮷", "吉", "由"), ranked)
+    }
+
+    @Test
+    fun rankCandidates_matchesSupplementaryPlaneCandidateToSingleCharacterInput() {
+        val ranked = HiraganaPredictionSupport.rankCandidates(
+            candidates = listOf("よし", "𠮷", "吉野"),
+            input = "よ",
+        )
+
+        assertEquals(listOf("𠮷", "よし", "吉野"), ranked)
+    }
 }

@@ -8,11 +8,11 @@ object HiraganaPredictionSupport {
     fun rankCandidates(candidates: List<String>, input: String): List<String> {
         if (input.isEmpty() || candidates.size <= 1) return candidates
 
-        val inputLength = input.length
+        val inputLength = characterCount(input)
         val sameLength = ArrayList<String>(candidates.size)
         val remaining = ArrayList<String>(candidates.size)
         for (candidate in candidates) {
-            if (candidate.length == inputLength) {
+            if (characterCount(candidate) == inputLength) {
                 sameLength.add(candidate)
             } else {
                 remaining.add(candidate)
@@ -22,4 +22,6 @@ object HiraganaPredictionSupport {
 
         return (sameLength + remaining).distinct()
     }
+
+    private fun characterCount(text: String): Int = text.codePointCount(0, text.length)
 }
