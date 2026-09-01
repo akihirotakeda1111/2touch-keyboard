@@ -10,7 +10,7 @@
     <LinearLayout
         android:id="@+id/candidate_bar_slot"
         android:layout_width="match_parent"
-        android:layout_height="@dimen/candidate_slot_height"
+        android:layout_height="wrap_content"
         android:layout_marginBottom="@dimen/candidate_bar_margin_bottom"
         android:background="@android:color/transparent"
         android:orientation="vertical">
@@ -26,13 +26,12 @@
             android:paddingHorizontal="8dp"
             android:textColor="@color/candidate_text"
             android:textSize="13sp"
-            android:visibility="gone" />
+            android:visibility="invisible" />
 
         <HorizontalScrollView
             android:id="@+id/candidate_scroll"
             android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
+            android:layout_height="@dimen/candidate_bar_height"
             android:background="@android:color/transparent"
             android:fillViewport="true"
             android:scrollbars="none">

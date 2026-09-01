@@ -15,7 +15,6 @@ import android.widget.ViewFlipper
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.isVisible
 import androidx.core.view.updatePadding
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
@@ -561,7 +560,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
 
     private fun updateNextInputSuggestionUi() {
         conversionHint.text = getString(R.string.next_input_hint)
-        conversionHint.isVisible = true
+        setConversionHintShown(true)
         updateCandidateUi(
             candidates = nextInputSuggestionSession.getCandidates(),
             onCandidateSelected = ::applyNextInputSuggestion,
@@ -572,7 +571,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     private fun updateConversionHint() {
         val composing = coordinator.getComposingText()
         if (!conversionSession.isActive || composing.isEmpty()) {
-            conversionHint.isVisible = false
+            setConversionHintShown(false)
             return
         }
 
@@ -596,7 +595,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         } else {
             getString(hintTemplate, target, suffix)
         }
-        conversionHint.isVisible = true
+        setConversionHintShown(true)
     }
 
     private fun onComposingTextChanged(composingText: String) {
@@ -752,6 +751,10 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         candidateBarSlot.setBackgroundColor(backgroundColor)
     }
 
+    private fun setConversionHintShown(shown: Boolean) {
+        conversionHint.visibility = if (shown) View.VISIBLE else View.INVISIBLE
+    }
+
     private fun scrollToSelectedCandidate(selectedIndex: Int) {
         candidateScroll.post {
             val child = candidateContainer.getChildAt(selectedIndex) ?: return@post
@@ -763,7 +766,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     private fun clearConversionSessionOnly() {
         conversionSession.clear()
         pendingConversionActivation = false
-        conversionHint.isVisible = false
+        setConversionHintShown(false)
     }
 
     private fun clearNextInputSuggestion() {
@@ -771,7 +774,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         if (conversionSession.getCandidates().isEmpty()) {
             candidateContainer.removeAllViews()
             setCandidateBarFilled(false)
-            conversionHint.isVisible = false
+            setConversionHintShown(false)
         } else {
             refreshConversionUi()
         }
@@ -788,7 +791,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         nextInputSuggestionSession.clear()
         pendingConversionActivation = false
         lastComposingTextForConversion = ""
-        conversionHint.isVisible = false
+        setConversionHintShown(false)
         candidateContainer.removeAllViews()
         setCandidateBarFilled(false)
         if (keyButtons.isNotEmpty()) {

@@ -1,6 +1,8 @@
 package com.example.twotouchkeyboard
 
 import android.content.Context
+import android.content.res.Configuration
+import android.util.TypedValue
 import android.view.LayoutInflater
 import android.view.View
 import android.widget.LinearLayout
@@ -17,24 +19,44 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class)
 class KeyboardCandidateBarLayoutTest {
 
+    private lateinit var context: Context
     private lateinit var keyboardView: View
     private lateinit var candidateBarSlot: LinearLayout
     private lateinit var conversionHint: TextView
+    private lateinit var candidateScroll: View
     private lateinit var candidateContainer: LinearLayout
 
     @Before
     fun setUp() {
-        val context = ApplicationProvider.getApplicationContext<Context>()
-        keyboardView = LayoutInflater.from(context).inflate(R.layout.keyboard_view, null)
-        candidateBarSlot = keyboardView.findViewById(R.id.candidate_bar_slot)
-        conversionHint = keyboardView.findViewById(R.id.conversion_hint)
-        candidateContainer = keyboardView.findViewById(R.id.candidate_container)
+        context = ApplicationProvider.getApplicationContext()
+        keyboardView = inflateKeyboard(context)
+        bindViews(keyboardView)
     }
 
     @Test
     fun candidateScroll_isVisibleByDefault() {
-        val candidateScroll = keyboardView.findViewById<View>(R.id.candidate_scroll)
         assertEquals(View.VISIBLE, candidateScroll.visibility)
+    }
+
+    @Test
+    fun conversionHint_isInvisibleByDefault() {
+        assertEquals(View.INVISIBLE, conversionHint.visibility)
+    }
+
+    @Test
+    fun candidateScroll_keepsFixedHeightWhenHintShows() {
+        measureKeyboard()
+        val hiddenScrollHeight = candidateScroll.measuredHeight
+        val hiddenKeyboardHeight = keyboardView.measuredHeight
+
+        assertTrue("candidate row should reserve its own height", hiddenScrollHeight > 0)
+
+        conversionHint.visibility = View.VISIBLE
+        conversionHint.text = "変換: あいう"
+        measureKeyboard()
+
+        assertEquals(hiddenScrollHeight, candidateScroll.measuredHeight)
+        assertEquals(hiddenKeyboardHeight, keyboardView.measuredHeight)
     }
 
     @Test
@@ -62,15 +84,73 @@ class KeyboardCandidateBarLayoutTest {
     }
 
     @Test
+    fun conversionHintHeight_scalesWithFontScale() {
+        val defaultHintHeight = measuredHintHeight(fontScale = 1f)
+        val largeContext = contextForFontScale(2f)
+        val largeHintHeight = measuredHintHeight(largeContext)
+        val scaledTextPx = TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_SP,
+            13f,
+            largeContext.resources.displayMetrics,
+        ).toInt()
+
+        assertTrue(
+            "hint slot should grow with font scale instead of clipping 13sp text",
+            largeHintHeight > defaultHintHeight,
+        )
+        assertTrue(
+            "13sp hint text should fit in the reserved slot at 2x font scale",
+            largeHintHeight >= scaledTextPx,
+        )
+    }
+
+    @Test
     fun candidateBarSlot_isTransparentByDefault() {
         val background = candidateBarSlot.background
         assertTrue("slot should have a transparent background", background != null)
         assertEquals(0, background!!.alpha)
     }
 
+    private fun measuredHintHeight(fontScale: Float): Int {
+        return measuredHintHeight(contextForFontScale(fontScale))
+    }
+
+    private fun measuredHintHeight(scaledContext: Context): Int {
+        val view = inflateKeyboard(scaledContext)
+        bindViews(view)
+        conversionHint.visibility = View.VISIBLE
+        conversionHint.text = "変換: あいう"
+        measure(view)
+        return conversionHint.measuredHeight
+    }
+
+    private fun contextForFontScale(fontScale: Float): Context {
+        return context.createConfigurationContext(
+            Configuration(context.resources.configuration).apply {
+                this.fontScale = fontScale
+            },
+        )
+    }
+
+    private fun inflateKeyboard(context: Context): View {
+        return LayoutInflater.from(context).inflate(R.layout.keyboard_view, null)
+    }
+
+    private fun bindViews(root: View) {
+        keyboardView = root
+        candidateBarSlot = root.findViewById(R.id.candidate_bar_slot)
+        conversionHint = root.findViewById(R.id.conversion_hint)
+        candidateScroll = root.findViewById(R.id.candidate_scroll)
+        candidateContainer = root.findViewById(R.id.candidate_container)
+    }
+
     private fun measureKeyboard() {
+        measure(keyboardView)
+    }
+
+    private fun measure(view: View) {
         val widthSpec = View.MeasureSpec.makeMeasureSpec(1080, View.MeasureSpec.EXACTLY)
         val heightSpec = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
-        keyboardView.measure(widthSpec, heightSpec)
+        view.measure(widthSpec, heightSpec)
     }
 }
