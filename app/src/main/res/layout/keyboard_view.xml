@@ -2,29 +2,17 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="@color/keyboard_background"
-    android:orientation="vertical"
-    android:padding="@dimen/keyboard_outer_padding">
+    android:background="@android:color/transparent"
+    android:orientation="vertical">
 
-    <TextView
-        android:id="@+id/conversion_hint"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="4dp"
-        android:paddingHorizontal="8dp"
-        android:textColor="@color/candidate_text"
-        android:textSize="13sp"
-        android:visibility="gone" />
-
+    <!-- 高さは常時確保。背景は常時透過し、背面のコンテンツが見える。 -->
     <HorizontalScrollView
         android:id="@+id/candidate_scroll"
         android:layout_width="match_parent"
-        android:layout_height="48dp"
-        android:layout_marginBottom="8dp"
-        android:background="@color/candidate_bar_background"
+        android:layout_height="@dimen/candidate_bar_height"
+        android:background="@android:color/transparent"
         android:fillViewport="true"
-        android:scrollbars="none"
-        android:visibility="gone">
+        android:scrollbars="none">
 
         <LinearLayout
             android:id="@+id/candidate_container"
@@ -35,11 +23,19 @@
 
     </HorizontalScrollView>
 
-    <ViewFlipper
-        android:id="@+id/keyboard_flipper"
+    <LinearLayout
+        android:id="@+id/keyboard_panel"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:measureAllChildren="false">
+        android:background="@color/keyboard_background"
+        android:orientation="vertical"
+        android:padding="@dimen/keyboard_outer_padding">
+
+        <ViewFlipper
+            android:id="@+id/keyboard_flipper"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:measureAllChildren="false">
 
         <GridLayout
             android:id="@+id/keyboard_grid"
@@ -181,6 +177,8 @@
 
         <include layout="@layout/keyboard_symbol_view" />
 
-    </ViewFlipper>
+        </ViewFlipper>
+
+    </LinearLayout>
 
 </LinearLayout>
