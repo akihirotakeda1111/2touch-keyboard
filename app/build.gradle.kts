@@ -4,6 +4,26 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose") version "2.0.21"
 }
 
+val updateRepository = providers.gradleProperty("UPDATE_REPOSITORY").get()
+require(updateRepository.matches(Regex("[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+"))) {
+    "UPDATE_REPOSITORY must use the owner/repository format"
+}
+
+val releaseStoreFile = providers.environmentVariable("RELEASE_STORE_FILE").orNull
+val releaseStorePassword = providers.environmentVariable("RELEASE_STORE_PASSWORD").orNull
+val releaseKeyAlias = providers.environmentVariable("RELEASE_KEY_ALIAS").orNull
+val releaseKeyPassword = providers.environmentVariable("RELEASE_KEY_PASSWORD").orNull
+val releaseSigningValues = listOf(
+    releaseStoreFile,
+    releaseStorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword,
+)
+require(releaseSigningValues.all { it != null } || releaseSigningValues.all { it == null }) {
+    "Release signing requires RELEASE_STORE_FILE, RELEASE_STORE_PASSWORD, " +
+        "RELEASE_KEY_ALIAS, and RELEASE_KEY_PASSWORD"
+}
+
 android {
     namespace = "com.example.twotouchkeyboard"
     compileSdk = 35
@@ -14,11 +34,25 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
+
+        buildConfigField("String", "UPDATE_REPOSITORY", "\"$updateRepository\"")
+    }
+
+    signingConfigs {
+        if (releaseStoreFile != null) {
+            create("release") {
+                storeFile = file(releaseStoreFile)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.findByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -37,12 +71,21 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     testOptions {
         unitTests {
             isIncludeAndroidResources = true
         }
+    }
+}
+
+tasks.register("printVersionInfo") {
+    group = "help"
+    description = "Prints versionCode and versionName for release automation."
+    doLast {
+        println("${android.defaultConfig.versionCode}|${android.defaultConfig.versionName}")
     }
 }
 
