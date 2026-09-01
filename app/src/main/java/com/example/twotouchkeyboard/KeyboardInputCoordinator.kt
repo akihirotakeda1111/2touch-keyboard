@@ -169,7 +169,7 @@ class KeyboardInputCoordinator(
 
     fun getTextModifierLabel(): String {
         return when (currentInputMode) {
-            InputMode.HIRAGANA -> "゛゜小"
+            InputMode.HIRAGANA -> "小゛゜"
             InputMode.ALPHABET -> "A/a"
             InputMode.NUMBER -> "─"
         }

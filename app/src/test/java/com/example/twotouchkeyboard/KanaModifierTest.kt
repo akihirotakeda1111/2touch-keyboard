@@ -46,6 +46,13 @@ class KanaModifierTest {
     }
 
     @Test
+    fun cycle_tsu_cyclesSmallThenDakuten() {
+        assertEquals('っ', KanaModifier.cycle('つ'))
+        assertEquals('づ', KanaModifier.cycle('っ'))
+        assertEquals('つ', KanaModifier.cycle('づ'))
+    }
+
+    @Test
     fun cycle_returnsNull_forUnsupportedCharacter() {
         assertNull(KanaModifier.cycle('ん'))
     }
