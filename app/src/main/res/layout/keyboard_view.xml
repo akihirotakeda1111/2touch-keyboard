@@ -6,34 +6,47 @@
     android:orientation="vertical"
     android:padding="@dimen/keyboard_outer_padding">
 
-    <TextView
-        android:id="@+id/conversion_hint"
+    <!-- 高さは常時確保。空のときは背景を透過し、キーボード背景が見える。 -->
+    <LinearLayout
+        android:id="@+id/candidate_bar_slot"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="4dp"
-        android:paddingHorizontal="8dp"
-        android:textColor="@color/candidate_text"
-        android:textSize="13sp"
-        android:visibility="gone" />
+        android:layout_height="@dimen/candidate_slot_height"
+        android:layout_marginBottom="@dimen/candidate_bar_margin_bottom"
+        android:background="@android:color/transparent"
+        android:orientation="vertical">
 
-    <HorizontalScrollView
-        android:id="@+id/candidate_scroll"
-        android:layout_width="match_parent"
-        android:layout_height="48dp"
-        android:layout_marginBottom="8dp"
-        android:background="@color/candidate_bar_background"
-        android:fillViewport="true"
-        android:scrollbars="none"
-        android:visibility="gone">
-
-        <LinearLayout
-            android:id="@+id/candidate_container"
-            android:layout_width="wrap_content"
-            android:layout_height="match_parent"
+        <TextView
+            android:id="@+id/conversion_hint"
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/conversion_hint_height"
+            android:ellipsize="end"
             android:gravity="center_vertical"
-            android:orientation="horizontal" />
+            android:includeFontPadding="false"
+            android:maxLines="1"
+            android:paddingHorizontal="8dp"
+            android:textColor="@color/candidate_text"
+            android:textSize="13sp"
+            android:visibility="gone" />
 
-    </HorizontalScrollView>
+        <HorizontalScrollView
+            android:id="@+id/candidate_scroll"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:background="@android:color/transparent"
+            android:fillViewport="true"
+            android:scrollbars="none">
+
+            <LinearLayout
+                android:id="@+id/candidate_container"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:gravity="center_vertical"
+                android:orientation="horizontal" />
+
+        </HorizontalScrollView>
+
+    </LinearLayout>
 
     <ViewFlipper
         android:id="@+id/keyboard_flipper"
