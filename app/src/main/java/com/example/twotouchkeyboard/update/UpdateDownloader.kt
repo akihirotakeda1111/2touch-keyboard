@@ -5,6 +5,8 @@ import com.example.twotouchkeyboard.BuildConfig
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
+import java.io.InputStream
+import java.io.OutputStream
 import java.net.URL
 import java.security.MessageDigest
 import javax.net.ssl.HttpsURLConnection
@@ -31,6 +33,7 @@ class UpdateDownloader(
     context: Context,
 ) {
     private val updateDirectory = File(context.cacheDir, UPDATE_DIRECTORY_NAME)
+    private val apkFileWriter = ApkFileWriter()
 
     suspend fun cleanup() = withContext(Dispatchers.IO) {
         updateDirectory.listFiles()?.forEach { file -> file.delete() }
@@ -80,21 +83,13 @@ class UpdateDownloader(
             }
 
             val digest = MessageDigest.getInstance("SHA-256")
-            var totalBytes = 0L
-            connection.inputStream.use { input ->
-                FileOutputStream(partialFile).buffered().use { output ->
-                    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-                    while (true) {
-                        val read = input.read(buffer)
-                        if (read == -1) break
-                        totalBytes += read
-                        if (totalBytes > UpdateConfig.MAX_APK_BYTES) {
-                            throw IOException("Downloaded APK exceeds the size limit")
-                        }
-                        digest.update(buffer, 0, read)
-                        output.write(buffer, 0, read)
-                    }
-                }
+            val totalBytes = connection.inputStream.use { input ->
+                apkFileWriter.write(
+                    input = input,
+                    destination = partialFile,
+                    digest = digest,
+                    maxBytes = UpdateConfig.MAX_APK_BYTES,
+                )
             }
             if (totalBytes == 0L || (contentLength > 0L && contentLength != totalBytes)) {
                 return@withContext UpdateDownloadResult.Failed(UpdateDownloadFailure.NETWORK)
@@ -116,6 +111,8 @@ class UpdateDownloader(
             UpdateDownloadResult.Downloaded(targetFile)
         } catch (error: CancellationException) {
             throw error
+        } catch (error: LocalApkWriteException) {
+            UpdateDownloadResult.Failed(UpdateDownloadFailure.STORAGE, error)
         } catch (error: Exception) {
             UpdateDownloadResult.Failed(UpdateDownloadFailure.NETWORK, error)
         } finally {
@@ -168,5 +165,82 @@ class UpdateDownloader(
 
     private companion object {
         const val UPDATE_DIRECTORY_NAME = "updates"
+    }
+}
+
+internal class LocalApkWriteException(
+    cause: Throwable,
+) : IOException("Failed to write the downloaded APK to local storage", cause)
+
+internal class ApkFileWriter(
+    private val outputStreamFactory: (File) -> OutputStream = { file ->
+        FileOutputStream(file).buffered()
+    },
+) {
+    fun write(
+        input: InputStream,
+        destination: File,
+        digest: MessageDigest,
+        maxBytes: Long,
+    ): Long {
+        val output = try {
+            LocalStorageOutputStream(outputStreamFactory(destination))
+        } catch (error: IOException) {
+            throw LocalApkWriteException(error)
+        } catch (error: SecurityException) {
+            throw LocalApkWriteException(error)
+        }
+
+        output.use {
+            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+            var totalBytes = 0L
+            while (true) {
+                val read = input.read(buffer)
+                if (read == -1) break
+                totalBytes += read
+                if (totalBytes > maxBytes) {
+                    throw IOException("Downloaded APK exceeds the size limit")
+                }
+                digest.update(buffer, 0, read)
+                output.write(buffer, 0, read)
+            }
+            return totalBytes
+        }
+    }
+
+    private class LocalStorageOutputStream(
+        private val delegate: OutputStream,
+    ) : OutputStream() {
+        override fun write(value: Int) {
+            try {
+                delegate.write(value)
+            } catch (error: IOException) {
+                throw LocalApkWriteException(error)
+            }
+        }
+
+        override fun write(buffer: ByteArray, offset: Int, length: Int) {
+            try {
+                delegate.write(buffer, offset, length)
+            } catch (error: IOException) {
+                throw LocalApkWriteException(error)
+            }
+        }
+
+        override fun flush() {
+            try {
+                delegate.flush()
+            } catch (error: IOException) {
+                throw LocalApkWriteException(error)
+            }
+        }
+
+        override fun close() {
+            try {
+                delegate.close()
+            } catch (error: IOException) {
+                throw LocalApkWriteException(error)
+            }
+        }
     }
 }
