@@ -3,6 +3,7 @@ package com.example.twotouchkeyboard
 import android.content.Context
 import android.content.res.Configuration
 import android.util.TypedValue
+import android.graphics.drawable.ColorDrawable
 import android.view.LayoutInflater
 import android.view.View
 import android.widget.LinearLayout
@@ -22,6 +23,7 @@ class KeyboardCandidateBarLayoutTest {
     private lateinit var context: Context
     private lateinit var keyboardView: View
     private lateinit var candidateBarSlot: LinearLayout
+    private lateinit var keyboardPanel: View
     private lateinit var conversionHint: TextView
     private lateinit var candidateScroll: View
     private lateinit var candidateContainer: LinearLayout
@@ -73,9 +75,6 @@ class KeyboardCandidateBarLayoutTest {
             text = "候補"
         }
         candidateContainer.addView(candidate)
-        candidateBarSlot.setBackgroundColor(
-            ContextCompat.getColor(candidateBarSlot.context, R.color.candidate_bar_background),
-        )
 
         measureKeyboard()
 
@@ -111,6 +110,21 @@ class KeyboardCandidateBarLayoutTest {
         assertEquals(0, background!!.alpha)
     }
 
+    @Test
+    fun keyboardRoot_isTransparent() {
+        val background = keyboardView.background
+        assertTrue("keyboard root should be transparent outside the key panel", background != null)
+        assertEquals(0, background!!.alpha)
+    }
+
+    @Test
+    fun keyboardPanel_usesOpaqueKeyboardBackground() {
+        val expected = ContextCompat.getColor(context, R.color.keyboard_background)
+        val background = keyboardPanel.background
+        assertTrue(background is ColorDrawable)
+        assertEquals(expected, (background as ColorDrawable).color)
+    }
+
     private fun measuredHintHeight(fontScale: Float): Int {
         return measuredHintHeight(contextForFontScale(fontScale))
     }
@@ -139,6 +153,7 @@ class KeyboardCandidateBarLayoutTest {
     private fun bindViews(root: View) {
         keyboardView = root
         candidateBarSlot = root.findViewById(R.id.candidate_bar_slot)
+        keyboardPanel = root.findViewById(R.id.keyboard_panel)
         conversionHint = root.findViewById(R.id.conversion_hint)
         candidateScroll = root.findViewById(R.id.candidate_scroll)
         candidateContainer = root.findViewById(R.id.candidate_container)
