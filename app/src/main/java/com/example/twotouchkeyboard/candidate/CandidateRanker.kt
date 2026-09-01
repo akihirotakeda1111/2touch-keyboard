@@ -5,10 +5,11 @@ import com.example.mozcengine.HiraganaPredictionSupport
 import com.example.twotouchkeyboard.InputMode
 
 /**
- * Ranks conversion candidates using usage frequency and Japanese same-length priority.
+ * Ranks conversion candidates using usage frequency and Japanese reading-length priority.
  *
- * Japanese predictive conversion prefers candidates whose length matches the input.
- * English ranking uses learned usage counts.
+ * Japanese predictive conversion prefers candidates whose reading length matches the input.
+ * Candidates without an explicit reading are treated as matching the input, so acquisition
+ * order is preserved. English ranking uses learned usage counts.
  */
 object CandidateRanker {
 
