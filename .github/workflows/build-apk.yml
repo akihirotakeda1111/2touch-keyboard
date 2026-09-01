@@ -129,14 +129,52 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Build APK
+      - name: Validate release signing secrets
+        if: inputs.build_type == 'release'
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          test -n "$RELEASE_KEYSTORE_BASE64"
+          test -n "$RELEASE_STORE_PASSWORD"
+          test -n "$RELEASE_KEY_ALIAS"
+          test -n "$RELEASE_KEY_PASSWORD"
+
+      - name: Decode release keystore
+        if: inputs.build_type == 'release'
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          RELEASE_STORE_FILE: ${{ runner.temp }}/2touch-release.jks
+        run: printf '%s' "$RELEASE_KEYSTORE_BASE64" | base64 --decode > "$RELEASE_STORE_FILE"
+
+      - name: Build signed release APK
+        if: inputs.build_type == 'release'
+        env:
+          RELEASE_STORE_FILE: ${{ runner.temp }}/2touch-release.jks
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: |
           chmod +x gradlew
-          if [ "${{ inputs.build_type }}" = "release" ]; then
-            ./gradlew assembleRelease --no-daemon
-          else
-            ./gradlew assembleDebug --no-daemon
-          fi
+          ./gradlew assembleRelease --no-daemon \
+            -PUPDATE_REPOSITORY="$GITHUB_REPOSITORY"
+
+      - name: Verify release APK signature
+        if: inputs.build_type == 'release'
+        run: |
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify \
+            --verbose \
+            --print-certs \
+            app/build/outputs/apk/release/app-release.apk
+
+      - name: Build debug APK
+        if: inputs.build_type == 'debug'
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon \
+            -PUPDATE_REPOSITORY="$GITHUB_REPOSITORY"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
