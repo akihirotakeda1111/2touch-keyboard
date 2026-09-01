@@ -9,7 +9,6 @@
     <!-- 2 行分（62dp × 2 + 行間 2dp） -->
     <dimen name="keyboard_tall_key_height">126dp</dimen>
     <dimen name="keyboard_key_stroke_width">0.5dp</dimen>
-    <!-- 候補バーは常時高さを確保し、空のときは透過する（IME リサイズによるタップ欠落を防ぐ） -->
-    <dimen name="conversion_hint_height">20sp</dimen>
+    <!-- 候補バーは常時高さを確保し、背景は透過する（IME リサイズによるタップ欠落を防ぐ） -->
     <dimen name="candidate_bar_height">48dp</dimen>
 </resources>

@@ -6,48 +6,22 @@
     android:orientation="vertical">
 
     <!-- 高さは常時確保。背景は常時透過し、背面のコンテンツが見える。 -->
-    <LinearLayout
-        android:id="@+id/candidate_bar_slot"
+    <HorizontalScrollView
+        android:id="@+id/candidate_scroll"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="@dimen/candidate_bar_height"
         android:background="@android:color/transparent"
-        android:orientation="vertical">
+        android:fillViewport="true"
+        android:scrollbars="none">
 
-        <TextView
-            android:id="@+id/conversion_hint"
-            android:layout_width="match_parent"
-            android:layout_height="@dimen/conversion_hint_height"
-            android:ellipsize="end"
+        <LinearLayout
+            android:id="@+id/candidate_container"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
             android:gravity="center_vertical"
-            android:includeFontPadding="false"
-            android:maxLines="1"
-            android:paddingHorizontal="8dp"
-            android:textColor="@color/candidate_text"
-            android:textSize="13sp"
-            android:shadowColor="#80000000"
-            android:shadowDx="0"
-            android:shadowDy="1"
-            android:shadowRadius="2"
-            android:visibility="invisible" />
+            android:orientation="horizontal" />
 
-        <HorizontalScrollView
-            android:id="@+id/candidate_scroll"
-            android:layout_width="match_parent"
-            android:layout_height="@dimen/candidate_bar_height"
-            android:background="@android:color/transparent"
-            android:fillViewport="true"
-            android:scrollbars="none">
-
-            <LinearLayout
-                android:id="@+id/candidate_container"
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:gravity="center_vertical"
-                android:orientation="horizontal" />
-
-        </HorizontalScrollView>
-
-    </LinearLayout>
+    </HorizontalScrollView>
 
     <LinearLayout
         android:id="@+id/keyboard_panel"

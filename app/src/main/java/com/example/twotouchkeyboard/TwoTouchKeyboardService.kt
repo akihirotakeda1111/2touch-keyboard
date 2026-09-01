@@ -43,7 +43,6 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     override val lifecycle: Lifecycle get() = lifecycleRegistry
 
     private lateinit var coordinator: KeyboardInputCoordinator
-    private lateinit var conversionHint: TextView
     private lateinit var candidateScroll: HorizontalScrollView
     private lateinit var candidateContainer: LinearLayout
     private lateinit var settingsRepository: SettingsRepository
@@ -124,7 +123,6 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
             ViewGroup.LayoutParams.WRAP_CONTENT,
         )
 
-        conversionHint = keyboardView.findViewById(R.id.conversion_hint)
         candidateScroll = keyboardView.findViewById(R.id.candidate_scroll)
         candidateContainer = keyboardView.findViewById(R.id.candidate_container)
         keyboardFlipper = keyboardView.findViewById(R.id.keyboard_flipper)
@@ -549,54 +547,15 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
 
     private fun refreshConversionUi() {
         if (nextInputSuggestionSession.isActive) {
-            updateNextInputSuggestionUi()
-            scheduleKeyLabelUpdate()
-            return
+            updateCandidateUi(
+                candidates = nextInputSuggestionSession.getCandidates(),
+                onCandidateSelected = ::applyNextInputSuggestion,
+                highlightSelection = false,
+            )
+        } else {
+            updateCandidateUi(conversionSession.getCandidates())
         }
-
-        updateConversionHint()
-        updateCandidateUi(conversionSession.getCandidates())
         scheduleKeyLabelUpdate()
-    }
-
-    private fun updateNextInputSuggestionUi() {
-        conversionHint.text = getString(R.string.next_input_hint)
-        setConversionHintShown(true)
-        updateCandidateUi(
-            candidates = nextInputSuggestionSession.getCandidates(),
-            onCandidateSelected = ::applyNextInputSuggestion,
-            highlightSelection = false,
-        )
-    }
-
-    private fun updateConversionHint() {
-        val composing = coordinator.getComposingText()
-        if (!conversionSession.isActive || composing.isEmpty()) {
-            setConversionHintShown(false)
-            return
-        }
-
-        val target = conversionSession.getConversionTarget(composing)
-        val suffix = conversionSession.getRemainingSuffix(composing)
-        val hintTemplate = if (coordinator.getInputMode() == InputMode.ALPHABET) {
-            if (suffix.isEmpty()) {
-                R.string.prediction_hint_full
-            } else {
-                R.string.prediction_hint_partial
-            }
-        } else {
-            if (suffix.isEmpty()) {
-                R.string.conversion_hint_full
-            } else {
-                R.string.conversion_hint_partial
-            }
-        }
-        conversionHint.text = if (suffix.isEmpty()) {
-            getString(hintTemplate, target)
-        } else {
-            getString(hintTemplate, target, suffix)
-        }
-        setConversionHintShown(true)
     }
 
     private fun onComposingTextChanged(composingText: String) {
@@ -737,10 +696,6 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         }
     }
 
-    private fun setConversionHintShown(shown: Boolean) {
-        conversionHint.visibility = if (shown) View.VISIBLE else View.INVISIBLE
-    }
-
     private fun scrollToSelectedCandidate(selectedIndex: Int) {
         candidateScroll.post {
             val child = candidateContainer.getChildAt(selectedIndex) ?: return@post
@@ -752,14 +707,12 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     private fun clearConversionSessionOnly() {
         conversionSession.clear()
         pendingConversionActivation = false
-        setConversionHintShown(false)
     }
 
     private fun clearNextInputSuggestion() {
         nextInputSuggestionSession.clear()
         if (conversionSession.getCandidates().isEmpty()) {
             candidateContainer.removeAllViews()
-            setConversionHintShown(false)
         } else {
             refreshConversionUi()
         }
@@ -776,7 +729,6 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         nextInputSuggestionSession.clear()
         pendingConversionActivation = false
         lastComposingTextForConversion = ""
-        setConversionHintShown(false)
         candidateContainer.removeAllViews()
         if (keyButtons.isNotEmpty()) {
             scheduleKeyLabelUpdate()
