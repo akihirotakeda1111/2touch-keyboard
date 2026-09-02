@@ -27,6 +27,7 @@ class MozcSession private constructor(
     private var lastMode: ConversionMode? = null
     private var lastCandidateIds: List<Int> = emptyList()
     private var lastCandidateIdByValue: Map<String, Int> = emptyMap()
+    private var lastCandidateReadings: Map<String, String> = emptyMap()
 
     fun convert(input: String, mode: ConversionMode): List<String> {
         if (input.isEmpty()) {
@@ -59,15 +60,23 @@ class MozcSession private constructor(
             else -> {
                 resetContext()
                 switchCompositionMode(mode)
+                lastCandidateReadings = emptyMap()
                 updateComposition(mozcInput)
             }
         }
 
+        val previousReadings = CandidateReadingMerger.reusableReadings(
+            previousInput = lastMozcInput,
+            newInput = mozcInput,
+            previousReadings = lastCandidateReadings,
+        )
         lastMozcInput = mozcInput
         lastMode = mode
         lastCandidateIds = extractCandidateIds(output)
         lastCandidateIdByValue = extractCandidateIdByValue(output)
-        return extractCandidates(output, input, mode)
+        val displayed = extractCandidates(output, input, mode, previousReadings)
+        lastCandidateReadings = displayed.readings
+        return displayed.candidates
     }
 
     fun suggestNext(mode: ConversionMode, selectedCandidate: String?): List<String> {
@@ -90,6 +99,7 @@ class MozcSession private constructor(
         lastMozcInput = ""
         lastCandidateIds = emptyList()
         lastCandidateIdByValue = emptyMap()
+        lastCandidateReadings = emptyMap()
         return extractSuggestionCandidates(output)
     }
 
@@ -99,6 +109,7 @@ class MozcSession private constructor(
         lastMode = null
         lastCandidateIds = emptyList()
         lastCandidateIdByValue = emptyMap()
+        lastCandidateReadings = emptyMap()
     }
 
     fun addUserHistory(key: String, value: String) {
@@ -133,6 +144,7 @@ class MozcSession private constructor(
         lastMode = null
         lastCandidateIds = emptyList()
         lastCandidateIdByValue = emptyMap()
+        lastCandidateReadings = emptyMap()
     }
 
     private fun ensureMode(mode: ConversionMode) {
@@ -145,6 +157,7 @@ class MozcSession private constructor(
         lastMode = mode
         lastCandidateIds = emptyList()
         lastCandidateIdByValue = emptyMap()
+        lastCandidateReadings = emptyMap()
     }
 
     private fun submitSession(): Output {
@@ -472,28 +485,34 @@ class MozcSession private constructor(
             val reading: String,
         )
 
-        private fun extractCandidateEntries(output: Output): List<ExtractedCandidate> {
-            val candidates = linkedMapOf<String, String>()
+        private data class DisplayedCandidates(
+            val candidates: List<String>,
+            val readings: Map<String, String>,
+        )
 
-            if (output.hasAllCandidateWords()) {
-                output.allCandidateWords.candidatesList.forEach { word ->
-                    val value = word.value
-                    if (value.isNotEmpty()) {
-                        candidates.putIfAbsent(value, word.key.orEmpty())
-                    }
+        private fun extractCandidateEntries(
+            output: Output,
+            previousReadings: Map<String, String> = emptyMap(),
+            emptyReadingFallback: String = "",
+        ): List<ExtractedCandidate> {
+            val allCandidateWordReadings = if (output.hasAllCandidateWords()) {
+                output.allCandidateWords.candidatesList.map { word ->
+                    word.value to word.key.orEmpty()
                 }
+            } else {
+                emptyList()
             }
-
-            if (output.hasCandidateWindow()) {
-                output.candidateWindow.candidateList.forEach { candidate ->
-                    val value = candidate.value
-                    if (value.isNotEmpty()) {
-                        candidates.putIfAbsent(value, "")
-                    }
-                }
+            val candidateWindowValues = if (output.hasCandidateWindow()) {
+                output.candidateWindow.candidateList.map { it.value }
+            } else {
+                emptyList()
             }
-
-            return candidates.map { (value, reading) -> ExtractedCandidate(value, reading) }
+            return CandidateReadingMerger.merge(
+                allCandidateWordReadings = allCandidateWordReadings,
+                candidateWindowValues = candidateWindowValues,
+                previousReadings = previousReadings,
+                emptyReadingFallback = emptyReadingFallback,
+            ).map { (value, reading) -> ExtractedCandidate(value, reading) }
         }
 
         private fun extractCandidateValues(output: Output): List<String> {
@@ -512,8 +531,13 @@ class MozcSession private constructor(
             output: Output,
             fallbackInput: String,
             mode: ConversionMode,
-        ): List<String> {
-            val entries = extractCandidateEntries(output).toMutableList()
+            previousReadings: Map<String, String>,
+        ): DisplayedCandidates {
+            val entries = extractCandidateEntries(
+                output,
+                previousReadings = previousReadings,
+                emptyReadingFallback = fallbackInput,
+            ).toMutableList()
 
             if (entries.isEmpty() && output.hasPreedit()) {
                 val preedit = output.preedit.segmentList.joinToString("") { it.value }
@@ -526,8 +550,9 @@ class MozcSession private constructor(
                 }
             }
 
+            val readings = entries.associate { it.value to it.reading }
             val candidates = entries.map { it.value }
-            return when (mode) {
+            val displayed = when (mode) {
                 ConversionMode.ALPHABET -> AlphabetPredictionSupport.prepareEnglishCandidates(
                     candidates,
                     fallbackInput,
@@ -538,12 +563,13 @@ class MozcSession private constructor(
                     } else {
                         entries
                     }
-                    HiraganaPredictionSupport.rankCandidates(
+                    val ranked = HiraganaPredictionSupport.rankCandidates(
                         hiraganaEntries.map { it.value },
                         fallbackInput,
                         hiraganaEntries.map { it.reading },
                         getPriority = JapaneseCandidatePrior.current()::priorityOf,
                     )
+                    ranked.ifEmpty { listOf(fallbackInput) }
                 }
                 else -> {
                     if (candidates.isEmpty()) {
@@ -553,6 +579,7 @@ class MozcSession private constructor(
                     }
                 }
             }
+            return DisplayedCandidates(displayed, readings)
         }
     }
 }
