@@ -1,6 +1,7 @@
 package com.example.mozcengine
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class HiraganaPredictionSupportTest {
@@ -108,5 +109,106 @@ class HiraganaPredictionSupportTest {
         )
 
         assertEquals(listOf("一致", "予測", "別候補"), ranked)
+    }
+
+    @Test
+    fun rankCandidates_keepsOriginalOrder_whenPriorTableIsEmpty() {
+        val candidates = listOf("感謝しています", "漢", "漢字", "感", "感じ")
+        val readings = listOf("かんしゃしています", "かん", "かんじ", "かん", "かんじ")
+
+        val withoutPrior = HiraganaPredictionSupport.rankCandidates(
+            candidates = candidates,
+            input = "かん",
+            readings = readings,
+        )
+        val withEmptyPrior = HiraganaPredictionSupport.rankCandidates(
+            candidates = candidates,
+            input = "かん",
+            readings = readings,
+            getPriority = JapaneseCandidatePrior.EMPTY::priorityOf,
+        )
+
+        assertEquals(listOf("漢", "感", "感謝しています", "漢字", "感じ"), withoutPrior)
+        assertEquals(withoutPrior, withEmptyPrior)
+    }
+
+    @Test
+    fun rankCandidates_advancesPriority3CandidateByAtMostThreeSlotsInSameGroup() {
+        val ranked = rankWithPrior(
+            candidates = listOf("零", "一", "二", "三", "四", "五", "六"),
+            input = "あ",
+            readings = List(7) { "あ" },
+            tsv = "あ\t六\t3\n",
+        )
+
+        assertEquals(listOf("零", "一", "二", "三", "六", "四", "五"), ranked)
+        val slotsMoved = 6 - ranked.indexOf("六")
+        assertTrue("priority 3 must move the candidate forward", slotsMoved > 0)
+        assertTrue("priority 3 must not move more than 3 slots", slotsMoved <= 3)
+    }
+
+    @Test
+    fun rankCandidates_doesNotLetBoostedLongerPredictionOvertakeExactReadingMatch() {
+        val ranked = rankWithPrior(
+            candidates = listOf("感謝しています", "漢", "漢字", "感", "感じ"),
+            input = "かん",
+            readings = listOf("かんしゃしています", "かん", "かんじ", "かん", "かんじ"),
+            tsv = "かんじ\t感じ\t3\n",
+        )
+
+        assertEquals(listOf("漢", "感", "感じ", "感謝しています", "漢字"), ranked)
+        assertTrue(ranked.indexOf("漢") < ranked.indexOf("感じ"))
+        assertTrue(ranked.indexOf("感") < ranked.indexOf("感じ"))
+    }
+
+    @Test
+    fun rankCandidates_keepsMozcOrder_whenAdjustedRanksTie() {
+        val ranked = rankWithPrior(
+            candidates = listOf("愛", "合い", "藍", "相"),
+            input = "あい",
+            readings = List(4) { "あい" },
+            tsv = "あい\t合い\t1\nあい\t藍\t2\n",
+        )
+
+        assertEquals(listOf("愛", "合い", "藍", "相"), ranked)
+    }
+
+    @Test
+    fun rankCandidates_usesInputAsReading_whenReadingIsEmpty_forPriorLookup() {
+        val ranked = rankWithPrior(
+            candidates = listOf("私は", "わたし", "私"),
+            input = "わたし",
+            readings = listOf("わたしは", "わたし", ""),
+            tsv = "わたし\t私\t3\n",
+        )
+
+        assertEquals(listOf("私", "わたし", "私は"), ranked)
+    }
+
+    @Test
+    fun rankCandidates_countsSupplementaryPlaneCharactersAsOne_withPriorityApplied() {
+        val ranked = rankWithPrior(
+            candidates = listOf("予測", "一致", "別候補"),
+            input = "𠮷",
+            readings = listOf("𠮷野", "𠮷", "よし"),
+            tsv = "𠮷野\t予測\t3\n",
+        )
+
+        assertEquals(listOf("一致", "予測", "別候補"), ranked)
+    }
+
+    private fun rankWithPrior(
+        candidates: List<String>,
+        input: String,
+        readings: List<String>,
+        tsv: String,
+    ): List<String> {
+        val prior = JapaneseCandidatePrior.parse(tsv)
+        return HiraganaPredictionSupport.rankCandidates(
+            candidates = candidates,
+            input = input,
+            readings = readings,
+            getPriority = prior::priorityOf,
+        )
     }
 }

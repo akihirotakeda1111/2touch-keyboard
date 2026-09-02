@@ -327,6 +327,7 @@ class MozcSession private constructor(
 
         fun open(context: Context): MozcSession {
             ensureMozcLoaded(context)
+            JapaneseCandidatePrior.loadOnce(context)
             val createOutput = evaluateGlobal(
                 Input.newBuilder()
                     .setType(Input.CommandType.CREATE_SESSION)
@@ -541,6 +542,7 @@ class MozcSession private constructor(
                         hiraganaEntries.map { it.value },
                         fallbackInput,
                         hiraganaEntries.map { it.reading },
+                        getPriority = JapaneseCandidatePrior.current()::priorityOf,
                     )
                 }
                 else -> {

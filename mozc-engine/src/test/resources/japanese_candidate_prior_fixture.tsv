@@ -1,0 +1,18 @@
+# reading	candidate	priority
+# Fixture for JapaneseCandidatePrior parser tests. Not production data.
+
+わたし	私	3
+わたし	わたし	2
+
+# blank line above should be ignored
+not-a-valid-row
+foo	bar
+foo	bar	not-a-number
+		1
+あい	愛	-2
+あい	合い	9
+あい	藍	1
+あい	藍	3
+あい	藍	2
+
+わたし	私	1

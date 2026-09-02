@@ -1,0 +1,18 @@
+# reading	candidate	priority
+# Japanese conversion candidate general-frequency prior.
+# Packed into the APK and loaded once into memory. This is not user history.
+#
+# Format (UTF-8 TSV):
+#   reading<TAB>candidate<TAB>priority
+# priority is 0-3:
+#   3: move forward up to 3 slots within the same reading-length group
+#   2: move forward up to 2 slots
+#   1: move forward up to 1 slot
+#   0 or unlisted: no adjustment
+#
+# Blank lines and lines starting with # are ignored.
+# Duplicate reading+candidate rows keep the maximum priority.
+#
+# This bundled table is an empty placeholder. Populate it with a verified
+# frequency source before relying on general-frequency reranking in production.
+# Do not invent large candidate/weight lists without a redistributable source.
