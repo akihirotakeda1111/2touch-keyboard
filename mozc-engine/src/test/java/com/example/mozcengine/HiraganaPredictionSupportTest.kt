@@ -133,18 +133,23 @@ class HiraganaPredictionSupportTest {
     }
 
     @Test
-    fun rankCandidates_advancesPriority3CandidateByAtMostThreeSlotsInSameGroup() {
-        val ranked = rankWithPrior(
-            candidates = listOf("零", "一", "二", "三", "四", "五", "六"),
-            input = "あ",
-            readings = List(7) { "あ" },
-            tsv = "あ\t六\t3\n",
-        )
+    fun rankCandidates_advancesCandidateByAdvertisedPriorityInSameGroup() {
+        val candidates = listOf("零", "一", "二", "三", "四", "五", "六")
 
-        assertEquals(listOf("零", "一", "二", "三", "六", "四", "五"), ranked)
-        val slotsMoved = 6 - ranked.indexOf("六")
-        assertTrue("priority 3 must move the candidate forward", slotsMoved > 0)
-        assertTrue("priority 3 must not move more than 3 slots", slotsMoved <= 3)
+        for (priority in 1..3) {
+            val ranked = rankWithPrior(
+                candidates = candidates,
+                input = "あ",
+                readings = List(7) { "あ" },
+                tsv = "あ\t六\t$priority\n",
+            )
+
+            assertEquals(
+                "priority $priority must move the candidate forward by $priority slots",
+                priority,
+                candidates.indexOf("六") - ranked.indexOf("六"),
+            )
+        }
     }
 
     @Test
@@ -162,7 +167,7 @@ class HiraganaPredictionSupportTest {
     }
 
     @Test
-    fun rankCandidates_keepsMozcOrder_whenAdjustedRanksTie() {
+    fun rankCandidates_prefersHigherPriority_whenAdjustedRanksTie() {
         val ranked = rankWithPrior(
             candidates = listOf("愛", "合い", "藍", "相"),
             input = "あい",
@@ -170,7 +175,7 @@ class HiraganaPredictionSupportTest {
             tsv = "あい\t合い\t1\nあい\t藍\t2\n",
         )
 
-        assertEquals(listOf("愛", "合い", "藍", "相"), ranked)
+        assertEquals(listOf("藍", "合い", "愛", "相"), ranked)
     }
 
     @Test
