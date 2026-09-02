@@ -114,4 +114,85 @@ class CandidateReadingMergerTest {
 
         assertEquals(listOf("漢字", "感じ"), ranked)
     }
+
+    @Test
+    fun reusableReadings_keepsCache_whenCompositionIsUnchanged() {
+        val previous = mapOf("漢字" to "かんじ")
+
+        val reused = CandidateReadingMerger.reusableReadings(
+            previousInput = "かんじ",
+            newInput = "かんじ",
+            previousReadings = previous,
+        )
+
+        assertEquals(previous, reused)
+    }
+
+    @Test
+    fun reusableReadings_keepsCache_whenCompositionGrowsOrShrinks() {
+        val previous = mapOf("漢" to "かん", "漢字" to "かんじ")
+
+        assertEquals(
+            previous,
+            CandidateReadingMerger.reusableReadings(
+                previousInput = "かん",
+                newInput = "かんじ",
+                previousReadings = previous,
+            ),
+        )
+        assertEquals(
+            previous,
+            CandidateReadingMerger.reusableReadings(
+                previousInput = "かんじ",
+                newInput = "かん",
+                previousReadings = previous,
+            ),
+        )
+    }
+
+    @Test
+    fun reusableReadings_clearsCache_whenCompositionIsUnrelated() {
+        val previous = mapOf("日" to "ひ")
+
+        val reused = CandidateReadingMerger.reusableReadings(
+            previousInput = "ひ",
+            newInput = "にち",
+            previousReadings = previous,
+        )
+
+        assertEquals(emptyMap<String, String>(), reused)
+    }
+
+    @Test
+    fun reusableReadings_clearsCache_whenKanaModifierChangesComposition() {
+        val previous = mapOf("葉" to "は")
+
+        val reused = CandidateReadingMerger.reusableReadings(
+            previousInput = "は",
+            newInput = "ば",
+            previousReadings = previous,
+        )
+
+        assertEquals(emptyMap<String, String>(), reused)
+    }
+
+    @Test
+    fun merge_withoutPreviousReadings_doesNotHideCandidateAfterUnrelatedComposition() {
+        val ranked = HiraganaPredictionSupport.rankCandidates(
+            candidates = listOf("日"),
+            input = "にち",
+            readings = CandidateReadingMerger.merge(
+                allCandidateWordReadings = emptyList(),
+                candidateWindowValues = listOf("日"),
+                previousReadings = CandidateReadingMerger.reusableReadings(
+                    previousInput = "ひ",
+                    newInput = "にち",
+                    previousReadings = mapOf("日" to "ひ"),
+                ),
+                emptyReadingFallback = "にち",
+            ).map { it.second },
+        )
+
+        assertEquals(listOf("日"), ranked)
+    }
 }

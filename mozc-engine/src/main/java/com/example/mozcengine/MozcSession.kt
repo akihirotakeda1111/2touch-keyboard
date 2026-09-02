@@ -60,15 +60,21 @@ class MozcSession private constructor(
             else -> {
                 resetContext()
                 switchCompositionMode(mode)
+                lastCandidateReadings = emptyMap()
                 updateComposition(mozcInput)
             }
         }
 
+        val previousReadings = CandidateReadingMerger.reusableReadings(
+            previousInput = lastMozcInput,
+            newInput = mozcInput,
+            previousReadings = lastCandidateReadings,
+        )
         lastMozcInput = mozcInput
         lastMode = mode
         lastCandidateIds = extractCandidateIds(output)
         lastCandidateIdByValue = extractCandidateIdByValue(output)
-        val displayed = extractCandidates(output, input, mode, lastCandidateReadings)
+        val displayed = extractCandidates(output, input, mode, previousReadings)
         lastCandidateReadings = displayed.readings
         return displayed.candidates
     }
