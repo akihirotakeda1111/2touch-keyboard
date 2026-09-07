@@ -7,7 +7,8 @@ import com.example.twotouchkeyboard.InputMode
 /**
  * Ranks conversion candidates using usage frequency and Japanese reading-length priority.
  *
- * Japanese predictive conversion prefers candidates whose reading length matches the input.
+ * Japanese predictive conversion hides candidates whose reading is shorter than the input
+ * and prefers candidates whose reading length matches the input.
  * Candidates without an explicit reading are treated as matching the input, so acquisition
  * order is preserved. English ranking uses learned usage counts.
  */

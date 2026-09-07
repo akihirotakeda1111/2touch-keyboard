@@ -3,6 +3,7 @@ package com.example.mozcengine
 /**
  * 日本語の予測変換候補を、読み方の文字数が入力と同じものを優先して並べ替える。
  *
+ * 読み方が入力文字数未満の候補は除外する。
  * 読み方が空の候補は入力全体を読み方とみなす。同じ読み長・一般優先度なら取得順を維持する。
  * 任意の一般優先度は同じ読み長グループ内だけで最大3枠まで前進させる。
  */
@@ -14,12 +15,16 @@ object HiraganaPredictionSupport {
         readings: List<String> = emptyList(),
         getPriority: (reading: String, candidate: String) -> Int = NO_PRIORITY,
     ): List<String> {
-        if (input.isEmpty() || candidates.size <= 1) return candidates
+        if (input.isEmpty()) return candidates
 
         val inputLength = characterCount(input)
+        val eligible = candidates.withIndex().filter { (index, _) ->
+            characterCount(readingFor(readings, index, input)) >= inputLength
+        }
+        if (eligible.size <= 1) return eligible.map { it.value }
+
         val groupCounters = IntArray(READING_GROUP_COUNT)
-        return candidates
-            .withIndex()
+        return eligible
             .map { (index, value) ->
                 val reading = readingFor(readings, index, input)
                 val group = if (characterCount(reading) == inputLength) {
