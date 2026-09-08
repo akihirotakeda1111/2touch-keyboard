@@ -4,7 +4,7 @@ import android.content.Context
 import android.util.Log
 import com.example.mozcengine.ConversionEngine
 import com.example.mozcengine.ConversionMode
-import com.example.mozcengine.HiraganaPredictionSupport
+import com.example.mozcengine.ConversionCandidate
 import com.example.mozcengine.MozcConversionEngine
 import com.example.mozcengine.MozcSession
 import com.example.twotouchkeyboard.english.EnglishDictionaryConversionEngine
@@ -48,16 +48,13 @@ fun InputMode.toConversionMode(): ConversionMode = when (this) {
  */
 class DummyConversionEngine : ConversionEngine {
 
-    override suspend fun convert(input: String, mode: ConversionMode): List<String> {
+    override suspend fun convert(input: String, mode: ConversionMode): List<ConversionCandidate> {
         delay(100)
         if (input.isEmpty()) return emptyList()
         return when (mode) {
-            ConversionMode.HIRAGANA -> HiraganaPredictionSupport.rankCandidates(
-                lookupHiraganaCandidates(input),
-                input,
-            )
+            ConversionMode.HIRAGANA -> lookupHiraganaCandidates(input).map { ConversionCandidate(it, input) }
             ConversionMode.ALPHABET -> emptyList()
-            ConversionMode.NUMBER -> listOf(input)
+            ConversionMode.NUMBER -> listOf(ConversionCandidate(input, input))
         }
     }
 
@@ -68,9 +65,9 @@ class DummyConversionEngine : ConversionEngine {
     override suspend fun suggestNext(
         mode: ConversionMode,
         selectedCandidate: String?,
-    ): List<String> {
+    ): List<ConversionCandidate> {
         if (mode != ConversionMode.HIRAGANA) return emptyList()
-        return listOf("を", "が", "に")
+        return listOf("を", "が", "に").map { ConversionCandidate(it) }
     }
 
     private fun lookupHiraganaCandidates(input: String): List<String> {

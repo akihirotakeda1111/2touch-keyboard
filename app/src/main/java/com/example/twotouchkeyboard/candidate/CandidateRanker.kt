@@ -1,47 +1,17 @@
 package com.example.twotouchkeyboard.candidate
 
 import com.example.mozcengine.AlphabetPredictionSupport
-import com.example.mozcengine.HiraganaPredictionSupport
-import com.example.twotouchkeyboard.InputMode
+import com.example.mozcengine.ConversionCandidate
 
-/**
- * Ranks conversion candidates using usage frequency and Japanese reading-length priority.
- *
- * Japanese predictive conversion hides candidates whose reading is shorter than the input
- * and prefers candidates whose reading length matches the input.
- * Candidates without an explicit reading are treated as matching the input, so acquisition
- * order is preserved. English ranking uses learned usage counts.
- */
+/** Reorders eligible English candidates by usage, retaining readings and stable ties. */
 object CandidateRanker {
-
-    fun rank(
-        mode: InputMode,
-        contextKey: String,
-        candidates: List<String>,
-        getUsageCount: (contextKey: String, candidate: String) -> Int,
-    ): List<String> {
-        return when (mode) {
-            InputMode.ALPHABET -> rankByUsage(contextKey, candidates, getUsageCount)
-            InputMode.HIRAGANA -> HiraganaPredictionSupport.rankCandidates(candidates, contextKey)
-            InputMode.NUMBER -> candidates
-        }
-    }
-
     fun rankByUsage(
         contextKey: String,
-        candidates: List<String>,
+        candidates: List<ConversionCandidate>,
         getUsageCount: (contextKey: String, candidate: String) -> Int,
-    ): List<String> {
+    ): List<ConversionCandidate> {
         if (candidates.size <= 1) return candidates
-
         val lookupKey = AlphabetPredictionSupport.lookupInput(contextKey)
-        return candidates
-            .withIndex()
-            .sortedWith(
-                compareByDescending<IndexedValue<String>> { (_, candidate) ->
-                    getUsageCount(lookupKey, candidate)
-                }.thenBy { it.index },
-            )
-            .map { it.value }
+        return candidates.sortedByDescending { getUsageCount(lookupKey, it.value) }
     }
 }

@@ -1,5 +1,6 @@
 package com.example.twotouchkeyboard.english
 
+import com.example.mozcengine.ConversionCandidate
 import com.example.mozcengine.ConversionEngine
 import com.example.mozcengine.ConversionMode
 
@@ -14,7 +15,7 @@ class RoutingConversionEngine(
     override val isMozc: Boolean
         get() = japaneseEngine.isMozc
 
-    override suspend fun convert(input: String, mode: ConversionMode): List<String> {
+    override suspend fun convert(input: String, mode: ConversionMode): List<ConversionCandidate> {
         return when (mode) {
             ConversionMode.ALPHABET -> englishEngine.convert(input, mode)
             ConversionMode.HIRAGANA, ConversionMode.NUMBER -> japaneseEngine.convert(input, mode)
@@ -24,7 +25,7 @@ class RoutingConversionEngine(
     override suspend fun suggestNext(
         mode: ConversionMode,
         selectedCandidate: String?,
-    ): List<String> {
+    ): List<ConversionCandidate> {
         return when (mode) {
             ConversionMode.HIRAGANA -> japaneseEngine.suggestNext(mode, selectedCandidate)
             ConversionMode.ALPHABET, ConversionMode.NUMBER -> emptyList()

@@ -89,7 +89,7 @@ class CandidateReadingMergerTest {
     }
 
     @Test
-    fun merge_keepsShorterReadingAcrossRefresh_soRankerCanHideIt() {
+    fun merge_keepsShorterReadingAcrossRefresh_soFilterCanHideIt() {
         val first = CandidateReadingMerger.merge(
             allCandidateWordReadings = listOf(
                 "漢" to "かん",
@@ -106,13 +106,12 @@ class CandidateReadingMergerTest {
             previousReadings = first.toMap(),
             emptyReadingFallback = "かんじ",
         )
-        val ranked = HiraganaPredictionSupport.rankCandidates(
-            candidates = refresh.map { it.first },
+        val filtered = HiraganaPredictionSupport.filterCandidates(
+            candidates = refresh.map { (value, reading) -> ConversionCandidate(value, reading) },
             input = "かんじ",
-            readings = refresh.map { it.second },
         )
 
-        assertEquals(listOf("漢字", "感じ"), ranked)
+        assertEquals(listOf("漢字", "感じ"), filtered.map { it.value })
     }
 
     @Test
@@ -178,10 +177,9 @@ class CandidateReadingMergerTest {
 
     @Test
     fun merge_withoutPreviousReadings_doesNotHideCandidateAfterUnrelatedComposition() {
-        val ranked = HiraganaPredictionSupport.rankCandidates(
-            candidates = listOf("日"),
+        val filtered = HiraganaPredictionSupport.filterCandidates(
             input = "にち",
-            readings = CandidateReadingMerger.merge(
+            candidates = CandidateReadingMerger.merge(
                 allCandidateWordReadings = emptyList(),
                 candidateWindowValues = listOf("日"),
                 previousReadings = CandidateReadingMerger.reusableReadings(
@@ -190,9 +188,9 @@ class CandidateReadingMergerTest {
                     previousReadings = mapOf("日" to "ひ"),
                 ),
                 emptyReadingFallback = "にち",
-            ).map { it.second },
+            ).map { (value, reading) -> ConversionCandidate(value, reading) },
         )
 
-        assertEquals(listOf("日"), ranked)
+        assertEquals(listOf("日"), filtered.map { it.value })
     }
 }

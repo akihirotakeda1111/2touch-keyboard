@@ -10,12 +10,14 @@ enum class ConversionMode {
 }
 
 /**
- * Japanese conversion engine abstraction.
+ * Retrieves candidates and their readings in backend order.
+ * Display filtering, ranking and raw-input fallback belong to the app's candidate pipeline.
  */
 interface ConversionEngine {
     val isMozc: Boolean get() = false
 
-    suspend fun convert(input: String, mode: ConversionMode): List<String>
+    /** An empty result is valid; callers decide whether to display the input itself. */
+    suspend fun convert(input: String, mode: ConversionMode): List<ConversionCandidate>
 
     /**
      * Returns next-input (zero-query) suggestions after a commit.
@@ -25,7 +27,7 @@ interface ConversionEngine {
     suspend fun suggestNext(
         mode: ConversionMode,
         selectedCandidate: String? = null,
-    ): List<String> = emptyList()
+    ): List<ConversionCandidate> = emptyList()
 
     fun resetSession()
 

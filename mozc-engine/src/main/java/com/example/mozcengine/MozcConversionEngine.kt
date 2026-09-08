@@ -18,7 +18,7 @@ class MozcConversionEngine private constructor(
 
     private val mutex = Mutex()
 
-    override suspend fun convert(input: String, mode: ConversionMode): List<String> {
+    override suspend fun convert(input: String, mode: ConversionMode): List<ConversionCandidate> {
         return mutex.withLock {
             withContext(Dispatchers.Default) {
                 if (input.isEmpty()) {
@@ -34,7 +34,7 @@ class MozcConversionEngine private constructor(
     override suspend fun suggestNext(
         mode: ConversionMode,
         selectedCandidate: String?,
-    ): List<String> {
+    ): List<ConversionCandidate> {
         if (mode != ConversionMode.HIRAGANA) return emptyList()
         return mutex.withLock {
             withContext(Dispatchers.Default) {

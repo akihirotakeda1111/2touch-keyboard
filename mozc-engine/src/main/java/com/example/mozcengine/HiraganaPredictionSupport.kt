@@ -1,39 +1,45 @@
 package com.example.mozcengine
 
 /**
- * 日本語の予測変換候補を、読み方の文字数が入力と同じものを優先して並べ替える。
+ * CandidatePipeline から呼ぶ、日本語候補の除外・並べ替えポリシー。
  *
- * 読み方が入力文字数未満の候補は除外する。
+ * filterCandidates は読み方が入力文字数未満の候補を除外する。
+ * rankEligibleCandidates は適格候補のみを受け取り、同じ読み長の候補を優先する。
  * 読み方が空の候補は入力全体を読み方とみなす。同じ読み長・一般優先度なら取得順を維持する。
  * 任意の一般優先度は同じ読み長グループ内だけで最大3枠まで前進させる。
  */
 object HiraganaPredictionSupport {
 
-    fun rankCandidates(
-        candidates: List<String>,
+    fun filterCandidates(
+        candidates: List<ConversionCandidate>,
         input: String,
-        readings: List<String> = emptyList(),
+    ): List<ConversionCandidate> {
+        if (input.isEmpty()) return candidates
+        val inputLength = characterCount(input)
+        return candidates.filter { characterCount(it.reading.ifEmpty { input }) >= inputLength }
+    }
+
+    fun rankEligibleCandidates(
+        candidates: List<ConversionCandidate>,
+        input: String,
         getPriority: (reading: String, candidate: String) -> Int = NO_PRIORITY,
-    ): List<String> {
+    ): List<ConversionCandidate> {
         if (input.isEmpty()) return candidates
 
         val inputLength = characterCount(input)
-        val eligible = candidates.withIndex().filter { (index, _) ->
-            characterCount(readingFor(readings, index, input)) >= inputLength
-        }
-        if (eligible.size <= 1) return eligible.map { it.value }
+        if (candidates.size <= 1) return candidates
 
         val groupCounters = IntArray(READING_GROUP_COUNT)
-        return eligible
+        return candidates.withIndex()
             .map { (index, value) ->
-                val reading = readingFor(readings, index, input)
+                val reading = value.reading.ifEmpty { input }
                 val group = if (characterCount(reading) == inputLength) {
                     EXACT_READING_LENGTH_GROUP
                 } else {
                     OTHER_READING_LENGTH_GROUP
                 }
                 val groupOriginalRank = groupCounters[group]++
-                val priority = getPriority(reading, value).coerceIn(
+                val priority = getPriority(reading, value.value).coerceIn(
                     JapaneseCandidatePrior.MIN_PRIORITY,
                     JapaneseCandidatePrior.MAX_PRIORITY,
                 )
@@ -52,18 +58,14 @@ object HiraganaPredictionSupport {
                     .thenBy { it.originalIndex },
             )
             .map { it.value }
-            .distinct()
-    }
-
-    private fun readingFor(readings: List<String>, index: Int, input: String): String {
-        return readings.getOrNull(index).orEmpty().ifEmpty { input }
+            .distinctBy { it.value }
     }
 
     private fun characterCount(text: String): Int = text.codePointCount(0, text.length)
 
     private data class RankedCandidate(
         val originalIndex: Int,
-        val value: String,
+        val value: ConversionCandidate,
         val readingLengthGroup: Int,
         val adjustedRank: Int,
         val priority: Int,

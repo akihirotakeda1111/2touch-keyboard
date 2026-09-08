@@ -4,15 +4,7 @@ import com.example.mozcengine.ConversionEngine
 import com.example.mozcengine.ConversionMode
 import com.example.twotouchkeyboard.InputMode
 
-/**
- * Coordinates candidate usage learning and ranking across input modes.
- *
- * Japanese learning is delegated to Mozc user history (Option 3).
- * Japanese predictive conversion hides candidates whose reading is shorter than the input
- * and prefers candidates whose reading length matches the input.
- * English learning uses [EnglishCandidateUsageStore] (Option 2).
- * [CandidateRanker] is the unified ranking entry point.
- */
+/** Records candidate learning; display policy belongs to CandidatePipeline. */
 class CandidateLearningCoordinator(
     private val conversionEngine: ConversionEngine,
     private val englishUsageStore: EnglishCandidateUsageStore,
@@ -41,21 +33,8 @@ class CandidateLearningCoordinator(
         }
     }
 
-    fun rank(
-        mode: InputMode,
-        contextKey: String,
-        candidates: List<String>,
-    ): List<String> {
-        if (!learningEnabled && mode != InputMode.HIRAGANA) return candidates
-
-        return CandidateRanker.rank(
-            mode = mode,
-            contextKey = contextKey,
-            candidates = candidates,
-            getUsageCount = { prefix, candidate ->
-                englishUsageStore.getCount(prefix, candidate)
-            },
-        )
+    fun getUsageCount(contextKey: String, candidate: String): Int {
+        return if (learningEnabled) englishUsageStore.getCount(contextKey, candidate) else 0
     }
 
     fun clearHistory(mode: InputMode? = null) {

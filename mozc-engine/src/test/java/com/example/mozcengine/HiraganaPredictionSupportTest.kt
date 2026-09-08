@@ -10,7 +10,7 @@ class HiraganaPredictionSupportTest {
     fun rankCandidates_returnsEmpty_whenAllReadingsAreShorter() {
         assertEquals(
             emptyList<String>(),
-            HiraganaPredictionSupport.rankCandidates(
+            rankCandidates(
                 listOf("漢", "感"), "かんじ", listOf("かん", "かん"),
             ),
         )
@@ -20,7 +20,7 @@ class HiraganaPredictionSupportTest {
     fun rankCandidates_defaultsOnlyMissingReadings_afterFilteringEarlierCandidate() {
         assertEquals(
             listOf("漢字", "感じ", "漢字語"),
-            HiraganaPredictionSupport.rankCandidates(
+            rankCandidates(
                 listOf("漢", "漢字語", "漢字", "感じ"),
                 "かんじ",
                 listOf("かん", "かんじご", ""),
@@ -32,7 +32,7 @@ class HiraganaPredictionSupportTest {
     fun rankCandidates_deduplicatesAfterSelectingReadingLengthGroup() {
         assertEquals(
             listOf("感じ", "漢字", "漢字語"),
-            HiraganaPredictionSupport.rankCandidates(
+            rankCandidates(
                 listOf("漢字語", "漢字", "感じ", "漢字"),
                 "かんじ",
                 listOf("かんじご", "かんじご", "かんじ", "かんじ"),
@@ -45,7 +45,7 @@ class HiraganaPredictionSupportTest {
     fun rankCandidates_keepsAcquisitionOrder_whenReadingsMatchInput() {
         val candidates = listOf("わたし", "ワタシ", "私")
 
-        val ranked = HiraganaPredictionSupport.rankCandidates(
+        val ranked = rankCandidates(
             candidates = candidates,
             input = "わたし",
             readings = listOf("わたし", "わたし", "わたし"),
@@ -58,7 +58,7 @@ class HiraganaPredictionSupportTest {
     fun rankCandidates_defaultsMissingReadingsToInput() {
         val candidates = listOf("わたし", "ワタシ", "私")
 
-        val ranked = HiraganaPredictionSupport.rankCandidates(
+        val ranked = rankCandidates(
             candidates = candidates,
             input = "わたし",
         )
@@ -68,7 +68,7 @@ class HiraganaPredictionSupportTest {
 
     @Test
     fun rankCandidates_prioritizesReadingsMatchingInputLength() {
-        val ranked = HiraganaPredictionSupport.rankCandidates(
+        val ranked = rankCandidates(
             candidates = listOf("感謝しています", "漢", "漢字", "感", "感じ"),
             input = "かん",
             readings = listOf("かんしゃしています", "かん", "かんじ", "かん", "かんじ"),
@@ -79,7 +79,7 @@ class HiraganaPredictionSupportTest {
 
     @Test
     fun rankCandidates_keepsEngineOrder_withinSameReadingLength() {
-        val ranked = HiraganaPredictionSupport.rankCandidates(
+        val ranked = rankCandidates(
             candidates = listOf("愛", "合い", "藍", "相手", "挨拶"),
             input = "あい",
             readings = listOf("あい", "あい", "あい", "あいて", "あいさつ"),
@@ -90,7 +90,7 @@ class HiraganaPredictionSupportTest {
 
     @Test
     fun rankCandidates_treatsEmptyReadingAsInput() {
-        val ranked = HiraganaPredictionSupport.rankCandidates(
+        val ranked = rankCandidates(
             candidates = listOf("私は", "私", "わたし"),
             input = "わたし",
             readings = listOf("わたしは", "", "わたし"),
@@ -101,7 +101,7 @@ class HiraganaPredictionSupportTest {
 
     @Test
     fun rankCandidates_ignoresCandidateDisplayLength() {
-        val ranked = HiraganaPredictionSupport.rankCandidates(
+        val ranked = rankCandidates(
             candidates = listOf("𠮷野", "𠮷", "吉"),
             input = "よし",
             readings = listOf("よしの", "よし", "よし"),
@@ -114,7 +114,7 @@ class HiraganaPredictionSupportTest {
     fun rankCandidates_preservesOrder_whenNoReadingMatchesInputLength() {
         val candidates = listOf("桜", "佐倉")
 
-        val ranked = HiraganaPredictionSupport.rankCandidates(
+        val ranked = rankCandidates(
             candidates = candidates,
             input = "さくら",
             readings = listOf("さくらんぼ", "さくらんぼ"),
@@ -125,7 +125,7 @@ class HiraganaPredictionSupportTest {
 
     @Test
     fun rankCandidates_hidesReadingsShorterThanInput() {
-        val ranked = HiraganaPredictionSupport.rankCandidates(
+        val ranked = rankCandidates(
             candidates = listOf("漢", "漢字", "感", "感じ"),
             input = "かんじ",
             readings = listOf("かん", "かんじ", "かん", "かんじ"),
@@ -136,7 +136,7 @@ class HiraganaPredictionSupportTest {
 
     @Test
     fun rankCandidates_keepsLongerReadingsAfterHidingShorterOnes() {
-        val ranked = HiraganaPredictionSupport.rankCandidates(
+        val ranked = rankCandidates(
             candidates = listOf("愛", "亜", "相手", "合い", "挨拶"),
             input = "あい",
             readings = listOf("あい", "あ", "あいて", "あい", "あいさつ"),
@@ -147,7 +147,7 @@ class HiraganaPredictionSupportTest {
 
     @Test
     fun rankCandidates_hidesSoleCandidate_whenReadingIsShorterThanInput() {
-        val ranked = HiraganaPredictionSupport.rankCandidates(
+        val ranked = rankCandidates(
             candidates = listOf("漢"),
             input = "かんじ",
             readings = listOf("かん"),
@@ -160,7 +160,7 @@ class HiraganaPredictionSupportTest {
     fun rankCandidates_returnsOriginal_whenInputIsEmpty() {
         val candidates = listOf("を", "が", "に")
 
-        val ranked = HiraganaPredictionSupport.rankCandidates(
+        val ranked = rankCandidates(
             candidates = candidates,
             input = "",
         )
@@ -170,7 +170,7 @@ class HiraganaPredictionSupportTest {
 
     @Test
     fun rankCandidates_countsSupplementaryPlaneCharactersInReadingAsOne() {
-        val ranked = HiraganaPredictionSupport.rankCandidates(
+        val ranked = rankCandidates(
             candidates = listOf("予測", "一致", "別候補"),
             input = "𠮷",
             readings = listOf("𠮷野", "𠮷", "よし"),
@@ -181,7 +181,7 @@ class HiraganaPredictionSupportTest {
 
     @Test
     fun rankCandidates_hidesSupplementaryPlaneReadingShorterThanInput() {
-        val ranked = HiraganaPredictionSupport.rankCandidates(
+        val ranked = rankCandidates(
             candidates = listOf("𠮷", "𠮷野", "吉"),
             input = "𠮷野",
             readings = listOf("𠮷", "𠮷野", "よし"),
@@ -207,12 +207,12 @@ class HiraganaPredictionSupportTest {
         val candidates = listOf("感謝しています", "漢", "漢字", "感", "感じ")
         val readings = listOf("かんしゃしています", "かん", "かんじ", "かん", "かんじ")
 
-        val withoutPrior = HiraganaPredictionSupport.rankCandidates(
+        val withoutPrior = rankCandidates(
             candidates = candidates,
             input = "かん",
             readings = readings,
         )
-        val withEmptyPrior = HiraganaPredictionSupport.rankCandidates(
+        val withEmptyPrior = rankCandidates(
             candidates = candidates,
             input = "かん",
             readings = readings,
@@ -293,6 +293,19 @@ class HiraganaPredictionSupportTest {
         assertEquals(listOf("一致", "予測", "別候補"), ranked)
     }
 
+    private fun rankCandidates(
+        candidates: List<String>,
+        input: String,
+        readings: List<String> = emptyList(),
+        getPriority: (String, String) -> Int = { _, _ -> 0 },
+    ): List<String> {
+        val entries = candidates.mapIndexed { index, value ->
+            ConversionCandidate(value, readings.getOrNull(index).orEmpty())
+        }
+        val eligible = HiraganaPredictionSupport.filterCandidates(entries, input)
+        return HiraganaPredictionSupport.rankEligibleCandidates(eligible, input, getPriority).map { it.value }
+    }
+
     private fun rankWithPrior(
         candidates: List<String>,
         input: String,
@@ -300,7 +313,7 @@ class HiraganaPredictionSupportTest {
         tsv: String,
     ): List<String> {
         val prior = JapaneseCandidatePrior.parse(tsv)
-        return HiraganaPredictionSupport.rankCandidates(
+        return rankCandidates(
             candidates = candidates,
             input = input,
             readings = readings,

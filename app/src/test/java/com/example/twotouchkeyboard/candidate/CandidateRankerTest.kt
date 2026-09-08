@@ -1,6 +1,7 @@
 package com.example.twotouchkeyboard.candidate
 
 import com.example.twotouchkeyboard.InputMode
+import com.example.mozcengine.ConversionCandidate
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -15,7 +16,7 @@ class CandidateRankerTest {
             ),
         )
 
-        val ranked = CandidateRanker.rankByUsage(
+        val ranked = rankByUsage(
             contextKey = "hel",
             candidates = listOf("held", "help", "hello", "hel"),
             getUsageCount = { prefix, candidate ->
@@ -28,7 +29,7 @@ class CandidateRankerTest {
 
     @Test
     fun rankByUsage_preservesEngineOrder_whenUsageCountsAreEqual() {
-        val ranked = CandidateRanker.rankByUsage(
+        val ranked = rankByUsage(
             contextKey = "hel",
             candidates = listOf("held", "help", "hello"),
             getUsageCount = { _, _ -> 0 },
@@ -41,19 +42,18 @@ class CandidateRankerTest {
     fun rank_keepsJapaneseCandidatesInAcquisitionOrder_whenReadingsAreAbsent() {
         val candidates = listOf("わたし", "ワタシ", "私")
 
-        val ranked = CandidateRanker.rank(
+        val ranked = CandidatePipeline().prepare(
             mode = InputMode.HIRAGANA,
-            contextKey = "わたし",
-            candidates = candidates,
-            getUsageCount = { _, _ -> 100 },
+            input = "わたし",
+            candidates = candidates.map { ConversionCandidate(it) },
         )
 
-        assertEquals(candidates, ranked)
+        assertEquals(candidates, ranked.map { it.value })
     }
 
     @Test
     fun rankByUsage_isCaseInsensitiveForUsageLookup() {
-        val ranked = CandidateRanker.rankByUsage(
+        val ranked = rankByUsage(
             contextKey = "Hel",
             candidates = listOf("Held", "Help", "Hello"),
             getUsageCount = { prefix, candidate ->
@@ -63,4 +63,12 @@ class CandidateRankerTest {
 
         assertEquals(listOf("Help", "Held", "Hello"), ranked)
     }
+
+    private fun rankByUsage(
+        contextKey: String,
+        candidates: List<String>,
+        getUsageCount: (String, String) -> Int,
+    ): List<String> = CandidateRanker.rankByUsage(
+        contextKey, candidates.map { ConversionCandidate(it) }, getUsageCount,
+    ).map { it.value }
 }

@@ -22,6 +22,9 @@ import androidx.lifecycle.lifecycleScope
 import com.example.mozcengine.ConversionEngine
 import com.example.mozcengine.AlphabetPredictionSupport
 import com.example.mozcengine.ConversionMode
+import com.example.mozcengine.JapaneseCandidatePrior
+import com.example.twotouchkeyboard.candidate.CandidatePipeline
+import com.example.twotouchkeyboard.candidate.CandidateRequestKind
 import com.example.twotouchkeyboard.candidate.CandidateLearningCoordinator
 import com.example.twotouchkeyboard.candidate.CandidateUsageContext
 import com.example.twotouchkeyboard.candidate.EnglishCandidateUsageStore
@@ -55,6 +58,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     private lateinit var keyboardFlipper: ViewFlipper
     private lateinit var conversionEngine: ConversionEngine
     private lateinit var candidateLearningCoordinator: CandidateLearningCoordinator
+    private lateinit var candidatePipeline: CandidatePipeline
 
     private val conversionScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var conversionJob: Job? = null
@@ -83,6 +87,12 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         candidateLearningCoordinator = CandidateLearningCoordinator(
             conversionEngine = conversionEngine,
             englishUsageStore = EnglishCandidateUsageStore(applicationContext),
+        )
+        candidatePipeline = CandidatePipeline(
+            getUsageCount = candidateLearningCoordinator::getUsageCount,
+            getJapanesePriority = { reading, value ->
+                if (conversionEngine.isMozc) JapaneseCandidatePrior.current().priorityOf(reading, value) else 0
+            },
         )
         settingsCollectJob = lifecycleScope.launch {
             combine(
@@ -614,8 +624,9 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         }
 
         val target = resolveConversionTarget(composing)
+        val requestMode = coordinator.getInputMode()
         val requestComposing = composing
-        val lookupTarget = if (coordinator.getInputMode() == InputMode.ALPHABET) {
+        val lookupTarget = if (requestMode == InputMode.ALPHABET) {
             AlphabetPredictionSupport.lookupInput(target)
         } else {
             target
@@ -623,20 +634,16 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
 
         conversionJob = conversionScope.launch {
             val rawCandidates = withContext(Dispatchers.Default) {
-                conversionEngine.convert(lookupTarget, coordinator.getInputMode().toConversionMode())
+                conversionEngine.convert(lookupTarget, requestMode.toConversionMode())
             }
             if (requestComposing != coordinator.getComposingText()) return@launch
+            if (requestMode != coordinator.getInputMode()) return@launch
 
-            val candidates = if (coordinator.getInputMode() == InputMode.ALPHABET) {
-                AlphabetPredictionSupport.prepareEnglishCandidates(rawCandidates, target)
-            } else {
-                rawCandidates
-            }
-            val rankedCandidates = candidateLearningCoordinator.rank(
-                mode = coordinator.getInputMode(),
-                contextKey = target,
-                candidates = candidates,
-            )
+            val rankedCandidates = candidatePipeline.prepare(
+                mode = requestMode,
+                input = target,
+                candidates = rawCandidates,
+            ).map { it.value }
             conversionSession.setCandidates(rankedCandidates)
             if (pendingConversionActivation && rankedCandidates.isNotEmpty()) {
                 conversionSession.activate(requestComposing.length)
@@ -773,7 +780,13 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
                     return@launch
                 }
 
-                nextInputSuggestionSession.setCandidates(suggestions)
+                val displayed = candidatePipeline.prepare(
+                    mode = InputMode.HIRAGANA,
+                    input = "",
+                    candidates = suggestions,
+                    kind = CandidateRequestKind.NEXT_INPUT,
+                )
+                nextInputSuggestionSession.setCandidates(displayed.map { it.value })
                 refreshConversionUi()
             } finally {
                 if (pendingNextInputRequestToken == requestToken) {

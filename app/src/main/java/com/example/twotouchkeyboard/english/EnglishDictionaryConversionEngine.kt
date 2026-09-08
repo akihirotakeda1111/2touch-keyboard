@@ -2,7 +2,7 @@ package com.example.twotouchkeyboard.english
 
 import android.content.Context
 import android.util.Log
-import com.example.mozcengine.AlphabetPredictionSupport
+import com.example.mozcengine.ConversionCandidate
 import com.example.mozcengine.ConversionEngine
 import com.example.mozcengine.ConversionMode
 import kotlinx.coroutines.Dispatchers
@@ -21,14 +21,14 @@ class EnglishDictionaryConversionEngine(
     @Volatile
     private var dictionary: EnglishPrefixDictionary? = null
 
-    override suspend fun convert(input: String, mode: ConversionMode): List<String> {
+    override suspend fun convert(input: String, mode: ConversionMode): List<ConversionCandidate> {
         if (mode != ConversionMode.ALPHABET) return emptyList()
         if (input.isEmpty()) return emptyList()
 
         return withContext(Dispatchers.Default) {
             val dict = loadDictionary()
             val suggestions = dict.suggest(input, limit = EnglishPrefixDictionary.MAX_CANDIDATES)
-            AlphabetPredictionSupport.prepareEnglishCandidates(suggestions + input, input)
+            (suggestions + input).map { ConversionCandidate(it, input) }
         }
     }
 
