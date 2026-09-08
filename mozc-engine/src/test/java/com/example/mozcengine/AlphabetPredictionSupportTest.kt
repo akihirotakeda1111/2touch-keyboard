@@ -8,6 +8,72 @@ import org.junit.Test
 class AlphabetPredictionSupportTest {
 
     @Test
+    fun prepareEnglishCandidates_prefersCompletionsToCorrections_andKeepsInputLast() {
+        val prepared = AlphabetPredictionSupport.prepareEnglishCandidates(
+            listOf("HEL", "heap", "help", "こんにちは", "hello", "help", "hel"),
+            "Hel",
+        )
+
+        assertEquals(listOf("help", "hello", "HEL", "hel"), prepared)
+    }
+
+    @Test
+    fun prepareEnglishCandidates_deduplicatesCorrections_withoutChangingOrderOrCase() {
+        val prepared = AlphabetPredictionSupport.prepareEnglishCandidates(
+            listOf("HLEP", "help", "heap", "help", "Help", "変換"),
+            "hlep",
+        )
+
+        assertEquals(listOf("help", "heap", "Help"), prepared)
+    }
+
+    @Test
+    fun prepareEnglishCandidates_preservesAllowedPunctuationAndDigits() {
+        val prepared = AlphabetPredictionSupport.prepareEnglishCandidates(
+            listOf("a", "a1", "a-b", "a.b", "a'b", "a b", "a_b", "a!", "aあ", ""),
+            "a",
+        )
+
+        assertEquals(listOf("a1", "a-b", "a.b", "a'b", "a"), prepared)
+    }
+
+    @Test
+    fun prepareEnglishCandidates_usesOriginalInputCase_whenOnlyExactMatchesRemain() {
+        assertEquals(
+            listOf("Hel"),
+            AlphabetPredictionSupport.prepareEnglishCandidates(listOf("hel", "HEL"), "Hel"),
+        )
+    }
+
+    @Test
+    fun prepareEnglishCandidates_doesNotFallbackToInvalidInput() {
+        for (input in listOf("", "こんにちは", "two words")) {
+            assertEquals(
+                "input=$input",
+                emptyList<String>(),
+                AlphabetPredictionSupport.prepareEnglishCandidates(listOf("変換", ""), input),
+            )
+        }
+    }
+
+    @Test
+    fun prepareEnglishCandidates_isStableWhenAppliedAgainByService() {
+        val cases = listOf(
+            "hel" to listOf("hel", "help", "heap", "hello", "help"),
+            "hlep" to listOf("hlep", "help", "help", "heap"),
+            "Hel" to emptyList(),
+        )
+        for ((input, candidates) in cases) {
+            val prepared = AlphabetPredictionSupport.prepareEnglishCandidates(candidates, input)
+            assertEquals(
+                "input=$input",
+                prepared,
+                AlphabetPredictionSupport.prepareEnglishCandidates(prepared, input),
+            )
+        }
+    }
+
+    @Test
     fun rankCandidates_prioritizesLongerPrefixMatches() {
         val ranked = AlphabetPredictionSupport.rankCandidates(
             candidates = listOf("hel", "help", "hello", "held"),

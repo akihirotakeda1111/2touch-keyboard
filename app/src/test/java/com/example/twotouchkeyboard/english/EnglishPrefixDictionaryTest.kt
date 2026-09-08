@@ -7,6 +7,36 @@ import org.junit.Test
 class EnglishPrefixDictionaryTest {
 
     @Test
+    fun suggest_prefersCompletion_evenWhenCorrectionHasHigherFrequency() {
+        val dictionary = EnglishPrefixDictionary.fromEntries(
+            listOf("helper" to 1, "heap" to 1000),
+        )
+
+        assertEquals(listOf("heap"), dictionary.correct("help"))
+        assertEquals(listOf("helper"), dictionary.suggest("help"))
+    }
+
+    @Test
+    fun suggest_limitsDefaultResultsToTwenty_inFrequencyOrder() {
+        val words = ('a'..'z').mapIndexed { index, suffix -> "hel$suffix" to index + 1 }
+        val dictionary = EnglishPrefixDictionary.fromEntries(words)
+
+        assertEquals(
+            listOf("helz", "hely", "helx", "helw", "helv", "helu", "helt", "hels", "helr", "helq",
+                "help", "helo", "heln", "helm", "hell", "helk", "helj", "heli", "helh", "helg"),
+            dictionary.suggest("hel"),
+        )
+    }
+
+    @Test
+    fun suggest_doesNotCorrectThreeCharacterInput_withoutPrefixMatches() {
+        val dictionary = EnglishPrefixDictionary.fromEntries(listOf("help" to 500))
+
+        assertEquals(emptyList<String>(), dictionary.suggest("hep"))
+        assertEquals(listOf("help"), dictionary.suggest("hlep"))
+    }
+
+    @Test
     fun predict_returnsPrefixMatches_sortedByFrequency() {
         val dictionary = EnglishPrefixDictionary.fromEntries(
             listOf(

@@ -7,6 +7,41 @@ import org.junit.Test
 class HiraganaPredictionSupportTest {
 
     @Test
+    fun rankCandidates_returnsEmpty_whenAllReadingsAreShorter() {
+        assertEquals(
+            emptyList<String>(),
+            HiraganaPredictionSupport.rankCandidates(
+                listOf("漢", "感"), "かんじ", listOf("かん", "かん"),
+            ),
+        )
+    }
+
+    @Test
+    fun rankCandidates_defaultsOnlyMissingReadings_afterFilteringEarlierCandidate() {
+        assertEquals(
+            listOf("漢字", "感じ", "漢字語"),
+            HiraganaPredictionSupport.rankCandidates(
+                listOf("漢", "漢字語", "漢字", "感じ"),
+                "かんじ",
+                listOf("かん", "かんじご", ""),
+            ),
+        )
+    }
+
+    @Test
+    fun rankCandidates_deduplicatesAfterSelectingReadingLengthGroup() {
+        assertEquals(
+            listOf("感じ", "漢字", "漢字語"),
+            HiraganaPredictionSupport.rankCandidates(
+                listOf("漢字語", "漢字", "感じ", "漢字"),
+                "かんじ",
+                listOf("かんじご", "かんじご", "かんじ", "かんじ"),
+                getPriority = { _, _ -> 0 },
+            ),
+        )
+    }
+
+    @Test
     fun rankCandidates_keepsAcquisitionOrder_whenReadingsMatchInput() {
         val candidates = listOf("わたし", "ワタシ", "私")
 
