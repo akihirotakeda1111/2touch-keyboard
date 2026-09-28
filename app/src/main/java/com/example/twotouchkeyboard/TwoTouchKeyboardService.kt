@@ -56,6 +56,8 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     private var labelUpdatePosted = false
     private var pendingForceAllLabels = false
     private lateinit var keyboardFlipper: ViewFlipper
+    /** 記号パネルを開いた時点の入力モードで固定した、表示と入力で共通の文字。 */
+    private var symbolCharacters: Map<Int, String> = SymbolPanel.charactersFor(InputMode.HIRAGANA)
     private lateinit var conversionEngine: ConversionEngine
     private lateinit var candidateLearningCoordinator: CandidateLearningCoordinator
     private lateinit var candidatePipeline: CandidatePipeline
@@ -216,16 +218,19 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     }
 
     private fun bindSymbolKeyboard(root: View) {
-        SYMBOL_KEY_BINDINGS.forEach { (viewId, symbol) ->
-            root.findViewById<Button>(viewId).apply {
-                setOnClickListener { insertSymbol(symbol) }
-                setOnTouchListener(bindKeyTouchListener { insertSymbol(symbol) })
+        SymbolPanel.keys.forEach { key ->
+            root.findViewById<Button>(key.viewId).apply {
+                setOnClickListener { insertSymbol(symbolCharacters.getValue(key.viewId)) }
+                setOnTouchListener(bindKeyTouchListener {
+                    insertSymbol(symbolCharacters.getValue(key.viewId))
+                })
             }
         }
         root.findViewById<Button>(R.id.symbol_key_close).apply {
             setOnClickListener { showMainKeyboard() }
             setOnTouchListener(bindKeyTouchListener { showMainKeyboard() })
         }
+        applySymbolCharacters(root, currentSymbolMode())
     }
 
     private fun bindKey(root: View, viewId: Int, key: KeyboardKey) {
@@ -984,8 +989,20 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     }
 
     private fun showSymbolKeyboard() {
-        if (::keyboardFlipper.isInitialized) {
-            keyboardFlipper.displayedChild = INDEX_SYMBOL_KEYBOARD
+        if (!::keyboardFlipper.isInitialized || !::keyboardRootView.isInitialized) return
+        applySymbolCharacters(keyboardRootView, currentSymbolMode())
+        keyboardFlipper.displayedChild = INDEX_SYMBOL_KEYBOARD
+    }
+
+    private fun currentSymbolMode(): InputMode {
+        return if (::coordinator.isInitialized) coordinator.getInputMode() else InputMode.HIRAGANA
+    }
+
+    private fun applySymbolCharacters(root: View, mode: InputMode) {
+        val characters = SymbolPanel.charactersFor(mode)
+        symbolCharacters = characters
+        characters.forEach { (viewId, symbol) ->
+            root.findViewById<Button>(viewId).text = symbol
         }
     }
 
@@ -1049,23 +1066,5 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         private const val DELETE_REPEAT_INTERVAL_MS = 50L
         private const val DELETE_REPEAT_MIN_INTERVAL_MS = 20L
         private const val DELETE_REPEAT_ACCELERATION_RATIO = 0.85
-
-        private val SYMBOL_KEY_BINDINGS = mapOf(
-            R.id.symbol_key_comma to "、",
-            R.id.symbol_key_period to "。",
-            R.id.symbol_key_exclamation to "！",
-            R.id.symbol_key_question to "？",
-            R.id.symbol_key_middle_dot to "・",
-            R.id.symbol_key_at to "@",
-            R.id.symbol_key_hash to "#",
-            R.id.symbol_key_ampersand to "&",
-            R.id.symbol_key_asterisk to "*",
-            R.id.symbol_key_hyphen to "-",
-            R.id.symbol_key_underscore to "_",
-            R.id.symbol_key_plus to "+",
-            R.id.symbol_key_equals to "=",
-            R.id.symbol_key_slash to "/",
-            R.id.symbol_key_colon to ":",
-        )
     }
 }
