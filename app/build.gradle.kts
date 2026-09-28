@@ -32,8 +32,8 @@ android {
         applicationId = "com.example.twotouchkeyboard"
         minSdk = 24
         targetSdk = 35
-        versionCode = 4
-        versionName = "1.2.0"
+        versionCode = 5
+        versionName = "1.2.1"
 
         buildConfigField("String", "UPDATE_REPOSITORY", "\"$updateRepository\"")
     }
