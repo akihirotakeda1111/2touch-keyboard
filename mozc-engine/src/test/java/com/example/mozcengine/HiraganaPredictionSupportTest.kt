@@ -205,7 +205,7 @@ class HiraganaPredictionSupportTest {
     @Test
     fun rankCandidates_keepsItteHomophones_whenContentReadingIsShorter() {
         // Mozc stores the content reading 「いっ」 for 言って / 云って.
-        // Same-length readings stay first; the shorter homophones remain.
+        // Same-length readings stay first. This order is only an auxiliary sort.
         val ranked = rankCandidates(
             candidates = listOf("行って", "いって", "イッテ", "言って", "云って"),
             input = "いって",
@@ -315,8 +315,7 @@ class HiraganaPredictionSupportTest {
         val entries = candidates.mapIndexed { index, value ->
             ConversionCandidate(value, readings.getOrNull(index).orEmpty())
         }
-        val eligible = HiraganaPredictionSupport.filterCandidates(entries, input)
-        return HiraganaPredictionSupport.rankEligibleCandidates(eligible, input, getPriority).map { it.value }
+        return HiraganaPredictionSupport.rankEligibleCandidates(entries, input, getPriority).map { it.value }
     }
 
     private fun rankWithPrior(

@@ -27,9 +27,13 @@ class CandidatePipeline(
 
         return when (mode) {
             InputMode.HIRAGANA -> {
-                val eligible = HiraganaPredictionSupport.filterCandidates(candidates, input)
-                HiraganaPredictionSupport.rankEligibleCandidates(eligible, input, getJapanesePriority)
-                    .ifEmpty { listOf(ConversionCandidate(input, input)) }
+                HiraganaPredictionSupport.rankEligibleCandidates(
+                    candidates,
+                    input,
+                    getJapanesePriority,
+                ).ifEmpty {
+                    listOf(ConversionCandidate(input, input))
+                }
             }
             InputMode.ALPHABET -> {
                 val byValue = candidates.groupBy { it.value }

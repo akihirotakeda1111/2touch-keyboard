@@ -439,7 +439,7 @@ class MozcSession private constructor(
                 .setMixedConversion(true)
                 .setZeroQuerySuggestion(true)
                 .setUpdateInputModeFromSurroundingText(false)
-                .setAutoPartialSuggestion(true)
+                .setAutoPartialSuggestion(false)
                 .build()
         }
 

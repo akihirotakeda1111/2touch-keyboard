@@ -1,16 +1,31 @@
 package com.example.mozcengine
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.mozc.android.inputmethod.japanese.protobuf.ProtoCandidateWindow.CandidateWindow
 import org.mozc.android.inputmethod.japanese.protobuf.ProtoCandidateWindow.CandidateWord
 import org.mozc.android.inputmethod.japanese.protobuf.ProtoCommands.Output
+import org.mozc.android.inputmethod.japanese.protobuf.ProtoCommands.Request
 
 /**
  * Characterizes the existing extraction boundary without starting a native Mozc session.
  * Reflection is confined to the helpers until extraction has a public replacement.
  */
 class MozcCandidateExtractionTest {
+
+    @Test
+    fun softwareKeyboardRequest_disablesAutoPartialSuggestion() {
+        val method = MozcSession.Companion::class.java.getDeclaredMethod(
+            "buildSoftwareKeyboardRequest",
+        ).apply { isAccessible = true }
+        val request = method.invoke(MozcSession.Companion) as Request
+
+        assertFalse(request.autoPartialSuggestion)
+        assertTrue(request.mixedConversion)
+        assertTrue(request.zeroQuerySuggestion)
+    }
 
     @Test
     fun japanese_preservesShortReadings_forPipelineRanking() {
