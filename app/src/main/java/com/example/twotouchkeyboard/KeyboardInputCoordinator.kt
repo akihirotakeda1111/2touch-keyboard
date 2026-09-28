@@ -44,6 +44,7 @@ class KeyboardInputCoordinator(
 
     private var hiraganaInputMethod: CharacterInputMethod = CharacterInputMethod.TWOTOUCH
     private var alphabetInputMethod: CharacterInputMethod = CharacterInputMethod.TOGGLE
+    private var editorSyncSuppressed = false
 
     fun bindInputConnection(ic: InputConnection?) {
         inputConnection = ic
@@ -51,6 +52,16 @@ class KeyboardInputCoordinator(
 
     fun bindEditorInfo(info: EditorInfo?) {
         currentEditorInfo = info
+    }
+
+    /**
+     * 回転後も2タッチの待ちやトグル中の文字を消さないよう、入力処理はリセットしない。
+     */
+    fun updateEditorInfoPreservingInput(info: EditorInfo?) {
+        if (info == null) return
+        currentEditorInfo = info
+        fieldProfile = InputFieldProfileResolver.resolve(info)
+        listener.onStateChanged()
     }
 
     fun applyEditorInfo(info: EditorInfo?) {
@@ -139,6 +150,7 @@ class KeyboardInputCoordinator(
         if (confirmedBuffer.isEmpty() && currentPreview.isEmpty()) return
         confirmedBuffer.clear()
         currentPreview = ""
+        if (editorSyncSuppressed) return
         if (fieldProfile.passthroughEnabled) {
             inputConnection?.finishComposingText()
         }
@@ -155,6 +167,31 @@ class KeyboardInputCoordinator(
         numberProcessor.resetInputSession()
         clearComposingText()
         listener.onStateChanged()
+    }
+
+    /**
+     * 同一入力先と確認できない未確定文字を、入力欄へ送らずに捨てる。
+     * トグル中の文字は確定しない。
+     */
+    fun discardUnverifiedComposing() {
+        val previous = editorSyncSuppressed
+        editorSyncSuppressed = true
+        try {
+            confirmedBuffer.clear()
+            currentPreview = ""
+            hiraganaProcessor.resetInputSession()
+            alphabetProcessor.resetInputSession()
+            numberProcessor.resetInputSession()
+            confirmedBuffer.clear()
+            currentPreview = ""
+        } finally {
+            editorSyncSuppressed = previous
+        }
+        listener.onStateChanged()
+    }
+
+    fun setEditorSyncSuppressed(suppressed: Boolean) {
+        editorSyncSuppressed = suppressed
     }
 
     fun applyTextModifier() {
@@ -231,9 +268,13 @@ class KeyboardInputCoordinator(
 
     override fun appendConfirmedCharacter(character: String) {
         if (fieldProfile.passthroughEnabled) {
-            inputConnection?.commitText(character, 1)
+            if (!editorSyncSuppressed) {
+                inputConnection?.commitText(character, 1)
+            }
             currentPreview = ""
-            listener.onComposingTextUpdated("")
+            if (!editorSyncSuppressed) {
+                listener.onComposingTextUpdated("")
+            }
             return
         }
         confirmedBuffer.append(character)
@@ -242,6 +283,10 @@ class KeyboardInputCoordinator(
     }
 
     override fun setComposingPreview(text: String) {
+        if (editorSyncSuppressed) {
+            currentPreview = text
+            return
+        }
         if (fieldProfile.passthroughEnabled) {
             currentPreview = text
             val ic = inputConnection

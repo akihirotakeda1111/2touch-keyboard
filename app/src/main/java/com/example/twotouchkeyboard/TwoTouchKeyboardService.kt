@@ -1,11 +1,16 @@
 package com.example.twotouchkeyboard
 
+import android.content.res.Configuration
 import android.inputmethodservice.InputMethodService
+import android.os.Build
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.Window
+import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputConnection
 import android.widget.Button
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
@@ -13,7 +18,6 @@ import android.widget.TextView
 import android.widget.ViewFlipper
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
@@ -74,6 +78,14 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     private var pendingConversionActivation = false
     private var lastComposingTextForConversion = ""
     private var suppressConversionReset = false
+    private var symbolKeyboardVisible = false
+    private var appliedOrientation = Configuration.ORIENTATION_UNDEFINED
+    private var recreatingInputView = false
+    private val orientationHandoff = OrientationInputHandoff()
+    private var orientationFieldBefore = ComposingSpanRestore.FieldObservation.Unavailable
+    private var inputSessionId = 0L
+    private var inputStartPairOpen = false
+    private var suppressEditorComposingSync = false
 
     private var currentHiraganaMethod = CharacterInputMethod.TWOTOUCH
     private var currentAlphabetMethod = CharacterInputMethod.TOGGLE
@@ -82,6 +94,9 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     override fun onCreate() {
         lifecycleRegistry.currentState = Lifecycle.State.CREATED
         super.onCreate()
+        if (appliedOrientation == Configuration.ORIENTATION_UNDEFINED) {
+            appliedOrientation = resources.configuration.orientation
+        }
         lifecycleRegistry.currentState = Lifecycle.State.STARTED
 
         settingsRepository = SettingsRepository(applicationContext)
@@ -129,7 +144,10 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         val keyboardView = layoutInflater.inflate(R.layout.keyboard_view, null)
         keyboardRootView = keyboardView
         applyTransparentImeWindow()
-        applyNavigationBarPadding(keyboardView.findViewById(R.id.keyboard_panel))
+        applyEdgeAvoidance(
+            root = keyboardView,
+            panel = keyboardView.findViewById(R.id.keyboard_panel),
+        )
         keyboardView.layoutParams = ViewGroup.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -139,7 +157,49 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         candidateContainer = keyboardView.findViewById(R.id.candidate_container)
         keyboardFlipper = keyboardView.findViewById(R.id.keyboard_flipper)
 
-        coordinator = KeyboardInputCoordinator(
+        val createdCoordinator = !::coordinator.isInitialized
+        if (createdCoordinator) {
+            coordinator = createCoordinator()
+            coordinator.setHiraganaInputMethod(currentHiraganaMethod)
+            coordinator.setAlphabetInputMethod(currentAlphabetMethod)
+        }
+
+        keyButtons.clear()
+        displayedKeyLabels.clear()
+        bindKey(keyboardView, R.id.key_1, KeyboardKey.Digit(1))
+        bindKey(keyboardView, R.id.key_2, KeyboardKey.Digit(2))
+        bindKey(keyboardView, R.id.key_3, KeyboardKey.Digit(3))
+        bindKey(keyboardView, R.id.key_4, KeyboardKey.Digit(4))
+        bindKey(keyboardView, R.id.key_5, KeyboardKey.Digit(5))
+        bindKey(keyboardView, R.id.key_6, KeyboardKey.Digit(6))
+        bindKey(keyboardView, R.id.key_7, KeyboardKey.Digit(7))
+        bindKey(keyboardView, R.id.key_8, KeyboardKey.Digit(8))
+        bindKey(keyboardView, R.id.key_9, KeyboardKey.Digit(9))
+        bindKey(keyboardView, R.id.key_star, KeyboardKey.Star)
+        bindKey(keyboardView, R.id.key_0, KeyboardKey.Zero)
+        bindKey(keyboardView, R.id.key_hash, KeyboardKey.Hash)
+        bindDeleteKey(keyboardView, R.id.key_delete)
+        bindKey(keyboardView, R.id.key_enter, KeyboardKey.Enter)
+        bindKey(keyboardView, R.id.key_space, KeyboardKey.Space)
+        bindKey(keyboardView, R.id.key_cursor_left, KeyboardKey.CursorLeft)
+        bindKey(keyboardView, R.id.key_cursor_right, KeyboardKey.CursorRight)
+        bindKey(keyboardView, R.id.key_text_modifier, KeyboardKey.TextModifier)
+        bindSymbolKeyboard(keyboardView)
+
+        onKeyboardStateChanged(forceAllLabels = true)
+        if (symbolKeyboardVisible) {
+            showSymbolKeyboard()
+        } else {
+            showMainKeyboard()
+        }
+        if (!createdCoordinator) {
+            refreshConversionUi()
+        }
+        return keyboardView
+    }
+
+    private fun createCoordinator(): KeyboardInputCoordinator {
+        return KeyboardInputCoordinator(
             listener = object : KeyboardInputCoordinator.Listener {
                 override fun onStateChanged() {
                     onKeyboardStateChanged()
@@ -173,48 +233,41 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
                 }
             },
         )
-
-        coordinator.setHiraganaInputMethod(currentHiraganaMethod)
-        coordinator.setAlphabetInputMethod(currentAlphabetMethod)
-
-        bindKey(keyboardView, R.id.key_1, KeyboardKey.Digit(1))
-        bindKey(keyboardView, R.id.key_2, KeyboardKey.Digit(2))
-        bindKey(keyboardView, R.id.key_3, KeyboardKey.Digit(3))
-        bindKey(keyboardView, R.id.key_4, KeyboardKey.Digit(4))
-        bindKey(keyboardView, R.id.key_5, KeyboardKey.Digit(5))
-        bindKey(keyboardView, R.id.key_6, KeyboardKey.Digit(6))
-        bindKey(keyboardView, R.id.key_7, KeyboardKey.Digit(7))
-        bindKey(keyboardView, R.id.key_8, KeyboardKey.Digit(8))
-        bindKey(keyboardView, R.id.key_9, KeyboardKey.Digit(9))
-        bindKey(keyboardView, R.id.key_star, KeyboardKey.Star)
-        bindKey(keyboardView, R.id.key_0, KeyboardKey.Zero)
-        bindKey(keyboardView, R.id.key_hash, KeyboardKey.Hash)
-        bindDeleteKey(keyboardView, R.id.key_delete)
-        bindKey(keyboardView, R.id.key_enter, KeyboardKey.Enter)
-        bindKey(keyboardView, R.id.key_space, KeyboardKey.Space)
-        bindKey(keyboardView, R.id.key_cursor_left, KeyboardKey.CursorLeft)
-        bindKey(keyboardView, R.id.key_cursor_right, KeyboardKey.CursorRight)
-        bindKey(keyboardView, R.id.key_text_modifier, KeyboardKey.TextModifier)
-        bindSymbolKeyboard(keyboardView)
-
-        onKeyboardStateChanged(forceAllLabels = true)
-        showMainKeyboard()
-        return keyboardView
     }
 
-    private fun applyNavigationBarPadding(view: View) {
-        val basePaddingBottom = view.paddingBottom
-        ViewCompat.setOnApplyWindowInsetsListener(view) { target, windowInsets ->
-            val navigationBarInset =
-                windowInsets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
-            target.updatePadding(bottom = basePaddingBottom + navigationBarInset)
+    private fun applyEdgeAvoidance(root: View, panel: View) {
+        val baseRootLeft = root.paddingLeft
+        val baseRootRight = root.paddingRight
+        val basePanelBottom = panel.paddingBottom
+        ViewCompat.setOnApplyWindowInsetsListener(root) { _, windowInsets ->
+            val safe = KeyboardEdgeAvoidance.paddingFor(windowInsets)
+            root.updatePadding(
+                left = baseRootLeft + safe.left,
+                right = baseRootRight + safe.right,
+            )
+            panel.updatePadding(bottom = basePanelBottom + safe.bottom)
             windowInsets
         }
-        ViewCompat.requestApplyInsets(view)
+        ViewCompat.requestApplyInsets(root)
     }
 
     private fun applyTransparentImeWindow() {
-        window?.window?.setBackgroundDrawableResource(android.R.color.transparent)
+        val phoneWindow = window?.window ?: return
+        phoneWindow.setBackgroundDrawableResource(android.R.color.transparent)
+        applyDisplayCutoutMode(phoneWindow)
+    }
+
+    private fun applyDisplayCutoutMode(phoneWindow: Window) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return
+        val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+        } else {
+            WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+        }
+        val attributes = phoneWindow.attributes
+        if (attributes.layoutInDisplayCutoutMode == mode) return
+        attributes.layoutInDisplayCutoutMode = mode
+        phoneWindow.attributes = attributes
     }
 
     private fun bindSymbolKeyboard(root: View) {
@@ -599,6 +652,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     }
 
     private fun updateComposingText(text: String) {
+        if (suppressEditorComposingSync) return
         val inputConnection = currentInputConnection ?: return
         // finishComposingText() commits the current composing span. When deleting the
         // last character we must clear composing without committing it.
@@ -941,14 +995,112 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         return coordinator.getComposingPreview().isNotEmpty()
     }
 
-    private fun finalizeInputState() {
-        coordinator.bindInputConnection(currentInputConnection)
-        currentInputConnection?.let { ic ->
-            coordinator.commitComposingText(ic)
+    private fun finalizeInputState(connection: InputConnection? = currentInputConnection) {
+        if (!::coordinator.isInitialized) return
+        coordinator.bindInputConnection(connection)
+        if (connection != null) {
+            coordinator.commitComposingText(connection)
         }
         coordinator.clearComposingState()
         resetConversionState()
         showMainKeyboard()
+    }
+
+    private fun beginOrientationHandoff() {
+        if (!::coordinator.isInitialized) return
+        orientationHandoff.onOrientationChanged(inputSessionId)
+        orientationFieldBefore = ComposingSpanRestore.observe(currentInputConnection)
+    }
+
+    private fun clearOrientationRestore() {
+        orientationHandoff.clear()
+        orientationFieldBefore = ComposingSpanRestore.FieldObservation.Unavailable
+    }
+
+    private fun beginInputStart(restarting: Boolean) {
+        if (inputStartPairOpen) return
+        inputStartPairOpen = true
+        if (!restarting) {
+            inputSessionId += 1
+            clearOrientationRestore()
+        }
+    }
+
+    private fun completeInputStartPair() {
+        inputStartPairOpen = false
+    }
+
+    private fun withoutEditorComposingSync(block: () -> Unit) {
+        val previous = suppressEditorComposingSync
+        suppressEditorComposingSync = true
+        if (::coordinator.isInitialized) {
+            coordinator.setEditorSyncSuppressed(true)
+        }
+        try {
+            block()
+        } finally {
+            if (::coordinator.isInitialized) {
+                coordinator.setEditorSyncSuppressed(previous)
+            }
+            suppressEditorComposingSync = previous
+        }
+    }
+
+    private fun rebindPreservedInput(info: EditorInfo?) {
+        coordinator.updateEditorInfoPreservingInput(info)
+        val connection = currentInputConnection
+        coordinator.bindInputConnection(connection)
+        val before = orientationFieldBefore
+        orientationFieldBefore = ComposingSpanRestore.FieldObservation.Unavailable
+        val composing = coordinator.getComposingText()
+        val action = if (connection == null) {
+            if (composing.isEmpty()) {
+                ComposingSpanRestore.Action.None
+            } else {
+                ComposingSpanRestore.Action.AbandonInternal
+            }
+        } else {
+            ComposingSpanRestore.apply(connection, composing, before)
+        }
+        if (action == ComposingSpanRestore.Action.AbandonInternal) {
+            withoutEditorComposingSync {
+                coordinator.discardUnverifiedComposing()
+            }
+            resetConversionState()
+            // 同じセッションの既存文字は残し、未確定の区間だけ終える。
+            connection?.finishComposingText()
+        }
+        if (symbolKeyboardVisible) {
+            showSymbolKeyboard()
+        } else {
+            showMainKeyboard()
+        }
+        refreshConversionUi()
+        onKeyboardStateChanged(forceAllLabels = true)
+    }
+
+    private fun discardInputForUnverifiedTarget(info: EditorInfo?, restarting: Boolean) {
+        conversionJob?.cancel()
+        resetKeyboardViewState()
+        withoutEditorComposingSync {
+            coordinator.discardUnverifiedComposing()
+            coordinator.applyEditorInfo(info)
+        }
+        coordinator.bindInputConnection(currentInputConnection)
+        resetConversionState()
+        if (restarting) {
+            // 同じ入力欄の再開では、既存文字を残して未確定範囲だけ終える。
+            currentInputConnection?.finishComposingText()
+        }
+    }
+
+    private fun releasePressedKeys() {
+        keyButtons.values.forEach { button -> button.isPressed = false }
+        if (!::keyboardRootView.isInitialized) return
+        SymbolPanel.keys.forEach { key ->
+            keyboardRootView.findViewById<Button>(key.viewId)?.isPressed = false
+        }
+        keyboardRootView.findViewById<Button>(R.id.symbol_key_close)?.isPressed = false
     }
 
     private fun openSymbolKeyboard() {
@@ -983,12 +1135,14 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     }
 
     private fun showMainKeyboard() {
+        symbolKeyboardVisible = false
         if (::keyboardFlipper.isInitialized) {
             keyboardFlipper.displayedChild = INDEX_MAIN_KEYBOARD
         }
     }
 
     private fun showSymbolKeyboard() {
+        symbolKeyboardVisible = true
         if (!::keyboardFlipper.isInitialized || !::keyboardRootView.isInitialized) return
         applySymbolCharacters(keyboardRootView, currentSymbolMode())
         keyboardFlipper.displayedChild = INDEX_SYMBOL_KEYBOARD
@@ -1021,25 +1175,76 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     }
 
     override fun onEvaluateFullscreenMode(): Boolean {
+        // 横表示でも抽出（全画面）モードへ切り替えず、入力先の画面を残す。
         super.onEvaluateFullscreenMode()
         return false
     }
 
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        stopDeleteRepeat()
+        releasePressedKeys()
+        val orientationChanged = appliedOrientation != Configuration.ORIENTATION_UNDEFINED &&
+            newConfig.orientation != appliedOrientation
+        if (orientationChanged) {
+            beginOrientationHandoff()
+        }
+        recreatingInputView = true
+        try {
+            super.onConfigurationChanged(newConfig)
+        } finally {
+            recreatingInputView = false
+            appliedOrientation = newConfig.orientation
+        }
+    }
+
+    override fun onStartInput(attribute: EditorInfo?, restarting: Boolean) {
+        super.onStartInput(attribute, restarting)
+        inputStartPairOpen = false
+        beginInputStart(restarting)
+    }
+
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
-        if (::coordinator.isInitialized) {
-            conversionJob?.cancel()
-            resetKeyboardViewState()
-            coordinator.applyEditorInfo(info)
-            coordinator.bindInputConnection(currentInputConnection)
-            coordinator.resetInputSession()
-            resetConversionState()
-            currentInputConnection?.finishComposingText()
+        beginInputStart(restarting)
+        try {
+            if (!::coordinator.isInitialized) return
+            if (orientationHandoff.consumeIfSameSession(inputSessionId, restarting)) {
+                rebindPreservedInput(info)
+                return
+            }
+            clearOrientationRestore()
+            discardInputForUnverifiedTarget(info, restarting)
+        } finally {
+            completeInputStartPair()
         }
+    }
+
+    override fun onFinishInput() {
+        inputStartPairOpen = false
+        if (!recreatingInputView) {
+            clearOrientationRestore()
+        }
+        super.onFinishInput()
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {
         stopDeleteRepeat()
+        releasePressedKeys()
+        if (recreatingInputView || (!finishingInput && orientationHandoff.isPending)) {
+            super.onFinishInputView(finishingInput)
+            return
+        }
+        if (finishingInput && orientationHandoff.isPending) {
+            clearOrientationRestore()
+            if (::coordinator.isInitialized) {
+                withoutEditorComposingSync {
+                    coordinator.discardUnverifiedComposing()
+                }
+                resetConversionState()
+            }
+            super.onFinishInputView(finishingInput)
+            return
+        }
         if (::coordinator.isInitialized) {
             finalizeInputState()
             coordinator.resetInputSession()
@@ -1050,6 +1255,13 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     override fun onDestroy() {
         lifecycleRegistry.currentState = Lifecycle.State.DESTROYED
         stopDeleteRepeat()
+        if (orientationHandoff.isPending && ::coordinator.isInitialized) {
+            clearOrientationRestore()
+            withoutEditorComposingSync {
+                coordinator.discardUnverifiedComposing()
+            }
+            resetConversionState()
+        }
         settingsCollectJob?.cancel()
         toggleAutoCommitJob?.cancel()
         conversionScope.cancel()

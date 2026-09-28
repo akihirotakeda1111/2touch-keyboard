@@ -7,6 +7,22 @@ import org.junit.Test
 class SymbolPanelTest {
 
     @Test
+    fun landscape_expandsReadingOrderIntoEightByThree() {
+        assertEquals(8, SymbolPanel.LANDSCAPE_COLUMN_COUNT)
+        assertEquals(3, SymbolPanel.LANDSCAPE_ROW_COUNT)
+        assertEquals(7, SymbolPanel.LANDSCAPE_CLOSE_COLUMN)
+        assertEquals(2, SymbolPanel.LANDSCAPE_CLOSE_ROW)
+        assertEquals(
+            listOf(
+                listOf("、", "。", "，", "．", "！", "？", "：", "；"),
+                listOf("（", "）", "｛", "｝", "－", "＿", "＋", "＝"),
+                listOf("＠", "＃", "＆", "＄", "＊", "／", "・"),
+            ),
+            SymbolPanel.landscapeRowsFor(InputMode.HIRAGANA),
+        )
+    }
+
+    @Test
     fun layout_placesTwentyThreeSymbolsInFourBySixLeavingCloseCellEmpty() {
         assertEquals(4, SymbolPanel.COLUMN_COUNT)
         assertEquals(6, SymbolPanel.ROW_COUNT)

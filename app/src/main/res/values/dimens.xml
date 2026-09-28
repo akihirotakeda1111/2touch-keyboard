@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- 旧レイアウトと同じ外周余白（keyboard_view 実測 336dp を維持） -->
+    <!-- 外周余白。縦は候補48 + 余白16 + 5行×64 = 384dp。横は3行で 256dp。 -->
     <dimen name="keyboard_outer_padding">8dp</dimen>
     <!-- キー間隔 1dp（隣接キー間は 2dp の隙間として keyboard_background が見える） -->
     <dimen name="keyboard_key_margin">1dp</dimen>
