@@ -38,7 +38,9 @@ internal object ComposingSpanRestore {
 
     fun observe(connection: InputConnection?): FieldObservation {
         if (connection == null) return FieldObservation.Unavailable
-        return observeExtracted(connection) ?: observeAroundCursor(connection)
+        // カーソル直前の文字数は、入力欄全体での位置ではない。
+        // 全文と絶対位置が取れたときだけ復元する。
+        return observeExtracted(connection) ?: FieldObservation.Unavailable
     }
 
     fun plan(
@@ -84,11 +86,14 @@ internal object ComposingSpanRestore {
             hintMaxLines = MAX_VERIFIED_LINES
         }
         val extracted = connection.getExtractedText(request, 0) ?: return null
-        if (extracted.partialStartOffset >= 0 || extracted.startOffset > 0) return null
-        val text = extracted.text ?: return null
+        // 部分取得の開始位置を 0 とみなすと、別の文字を未確定範囲にして上書きする。
+        if (extracted.partialStartOffset >= 0 || extracted.startOffset > 0) {
+            return FieldObservation.Unavailable
+        }
+        val text = extracted.text ?: return FieldObservation.Unavailable
         val selectionStart = absoluteIndex(extracted.selectionStart, text.length)
         val selectionEnd = absoluteIndex(extracted.selectionEnd, text.length)
-        if (selectionStart < 0 || selectionEnd < 0) return null
+        if (selectionStart < 0 || selectionEnd < 0) return FieldObservation.Unavailable
         val composingStart = composingBound(text, start = true, length = text.length)
         val composingEnd = composingBound(text, start = false, length = text.length)
         return FieldObservation(
@@ -99,74 +104,6 @@ internal object ComposingSpanRestore {
             composingStart = composingStart,
             composingEnd = composingEnd,
         )
-    }
-
-    private fun observeAroundCursor(connection: InputConnection): FieldObservation {
-        val flags = InputConnection.GET_TEXT_WITH_STYLES
-        val limit = MAX_VERIFIED_CHARS + 1
-        val before = connection.getTextBeforeCursor(limit, flags) ?: return FieldObservation.Unavailable
-        val after = connection.getTextAfterCursor(limit, flags) ?: return FieldObservation.Unavailable
-        if (before.length > MAX_VERIFIED_CHARS || after.length > MAX_VERIFIED_CHARS) {
-            return FieldObservation.Unavailable
-        }
-        val selected = connection.getSelectedText(flags)
-        if (selected != null && selected.length > MAX_VERIFIED_CHARS) {
-            return FieldObservation.Unavailable
-        }
-        val selectedText = selected?.toString().orEmpty()
-        val selectionStart = before.length
-        val selectionEnd = before.length + selectedText.length
-        val fullText = before.toString() + selectedText + after.toString()
-        val (composingStart, composingEnd) = composingRangeAroundCursor(
-            before = before,
-            selected = selected,
-            after = after,
-            selectionStart = selectionStart,
-            fullLength = fullText.length,
-        )
-        return FieldObservation(
-            available = true,
-            fullText = fullText,
-            selectionStart = selectionStart,
-            selectionEnd = selectionEnd,
-            composingStart = composingStart,
-            composingEnd = composingEnd,
-        )
-    }
-
-    private fun composingRangeAroundCursor(
-        before: CharSequence,
-        selected: CharSequence?,
-        after: CharSequence,
-        selectionStart: Int,
-        fullLength: Int,
-    ): Pair<Int, Int> {
-        val beforeRange = spanRange(before, absoluteOrigin = 0, fullLength = fullLength)
-        if (beforeRange != null) return beforeRange
-        val selectedRange = selected?.let {
-            spanRange(it, absoluteOrigin = selectionStart, fullLength = fullLength)
-        }
-        if (selectedRange != null) return selectedRange
-        val afterRange = spanRange(
-            after,
-            absoluteOrigin = selectionStart + (selected?.length ?: 0),
-            fullLength = fullLength,
-        )
-        return afterRange ?: (-1 to -1)
-    }
-
-    private fun spanRange(
-        text: CharSequence,
-        absoluteOrigin: Int,
-        fullLength: Int,
-    ): Pair<Int, Int>? {
-        val start = composingBound(text, start = true, length = text.length)
-        val end = composingBound(text, start = false, length = text.length)
-        if (start < 0 || end < 0) return null
-        val absoluteStart = absoluteOrigin + start
-        val absoluteEnd = absoluteOrigin + end
-        if (absoluteStart !in 0..fullLength || absoluteEnd !in 0..fullLength) return null
-        return absoluteStart to absoluteEnd
     }
 
     private fun composingBound(text: CharSequence, start: Boolean, length: Int): Int {

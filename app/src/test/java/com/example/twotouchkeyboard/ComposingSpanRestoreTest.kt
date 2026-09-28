@@ -34,17 +34,50 @@ class ComposingSpanRestoreTest {
     }
 
     @Test
-    fun apply_marksMatchingTextWithoutRewritingIt() {
-        val connection = connectionWith("下書きあい")
-        val before = ComposingSpanRestore.observe(connection)
+    fun apply_doesNotUsePartialTextLengthAsFieldPosition() {
+        val editable = SpannableStringBuilder("前文あい")
+        Selection.setSelection(editable, editable.length)
+        var markedRegion: Pair<Int, Int>? = null
+        val connection = object : BaseInputConnection(
+            View(ApplicationProvider.getApplicationContext()),
+            true,
+        ) {
+            override fun getEditable() = editable
 
-        val action = ComposingSpanRestore.apply(connection, "あい", before)
+            override fun getTextBeforeCursor(n: Int, flags: Int): CharSequence = "あい"
 
-        assertEquals(ComposingSpanRestore.Action.MarkExisting(3, 5), action)
-        val text = connection.editable!!
-        assertEquals("下書きあい", text.toString())
-        assertEquals(3, BaseInputConnection.getComposingSpanStart(text))
-        assertEquals(5, BaseInputConnection.getComposingSpanEnd(text))
+            override fun getTextAfterCursor(n: Int, flags: Int): CharSequence = ""
+
+            override fun getExtractedText(
+                request: ExtractedTextRequest?,
+                flags: Int,
+            ): ExtractedText {
+                return ExtractedText().apply {
+                    text = "あい"
+                    startOffset = 2
+                    partialStartOffset = 2
+                    partialEndOffset = editable.length
+                    selectionStart = 2
+                    selectionEnd = 2
+                }
+            }
+
+            override fun setComposingRegion(start: Int, end: Int): Boolean {
+                markedRegion = start to end
+                return super.setComposingRegion(start, end)
+            }
+        }
+
+        val action = ComposingSpanRestore.apply(
+            connection,
+            "あい",
+            ComposingSpanRestore.observe(connection),
+        )
+
+        assertEquals(ComposingSpanRestore.Action.AbandonInternal, action)
+        assertEquals(null, markedRegion)
+        assertEquals("前文あい", editable.toString())
+        assertEquals(-1, BaseInputConnection.getComposingSpanStart(editable))
     }
 
     @Test
@@ -63,7 +96,7 @@ class ComposingSpanRestoreTest {
 
     @Test
     fun apply_doesNotDuplicateCapitalizedText() {
-        val connection = connectionWith("A")
+        val connection = extractedConnectionWith("A")
         val before = ComposingSpanRestore.observe(connection)
 
         val action = ComposingSpanRestore.apply(connection, "a", before)
@@ -76,7 +109,7 @@ class ComposingSpanRestoreTest {
 
     @Test
     fun apply_doesNotInsertWhenTextWasTruncated() {
-        val connection = connectionWith("ab")
+        val connection = extractedConnectionWith("ab")
         val before = ComposingSpanRestore.observe(connection)
 
         val action = ComposingSpanRestore.apply(connection, "abc", before)
@@ -103,7 +136,7 @@ class ComposingSpanRestoreTest {
 
     @Test
     fun apply_doesNotEditWhenSelectionChanges() {
-        val connection = connectionWith("あい")
+        val connection = extractedConnectionWith("あい")
         val before = ComposingSpanRestore.observe(connection)
         Selection.setSelection(connection.editable!!, 0)
 
@@ -117,7 +150,7 @@ class ComposingSpanRestoreTest {
 
     @Test
     fun apply_doesNotEditWhenSelectionIsExpanded() {
-        val connection = connectionWith("あい")
+        val connection = extractedConnectionWith("あい")
         val text = connection.editable!!
         Selection.setSelection(text, 0, text.length)
         val selected = ComposingSpanRestore.observe(connection)

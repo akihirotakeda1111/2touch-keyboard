@@ -12,6 +12,8 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.inputmethod.BaseInputConnection
 import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.ExtractedText
+import android.view.inputmethod.ExtractedTextRequest
 import android.widget.Button
 import android.widget.LinearLayout
 import androidx.core.content.ContextCompat
@@ -171,6 +173,29 @@ class LandscapeInputRotationTest {
 
         assertEquals("", other.editable.toString())
         assertEquals("か", label(R.id.key_2))
+    }
+
+    @Test
+    fun sameFieldRestartWithoutRotation_endsComposingSpanAndKeepsText() {
+        val field = attachField(service, "")
+        press(R.id.key_2)
+        press(R.id.key_1)
+        idle()
+        val text = field.editable!!
+        assertEquals("か", text.toString())
+        assertEquals(0, BaseInputConnection.getComposingSpanStart(text))
+
+        service.onStartInput(editorInfo(), true)
+        service.onStartInputView(editorInfo(), true)
+        idle()
+
+        assertEquals("か", text.toString())
+        assertEquals(-1, BaseInputConnection.getComposingSpanStart(text))
+
+        press(R.id.key_2)
+        press(R.id.key_2)
+        idle()
+        assertEquals("かき", text.toString())
     }
 
     @Test
@@ -379,6 +404,22 @@ private fun attachField(service: InputMethodService, text: String): BaseInputCon
     val view = View(service)
     val connection = object : BaseInputConnection(view, true) {
         override fun getEditable() = editable
+
+        override fun getExtractedText(
+            request: ExtractedTextRequest?,
+            flags: Int,
+        ): ExtractedText {
+            val selectionStart = Selection.getSelectionStart(editable)
+            val selectionEnd = Selection.getSelectionEnd(editable)
+            return ExtractedText().apply {
+                this.text = editable
+                startOffset = 0
+                partialStartOffset = -1
+                partialEndOffset = -1
+                this.selectionStart = selectionStart
+                this.selectionEnd = selectionEnd
+            }
+        }
     }
     val field = InputMethodService::class.java.getDeclaredField("mStartedInputConnection")
     field.isAccessible = true

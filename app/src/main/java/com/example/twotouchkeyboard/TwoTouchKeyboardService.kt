@@ -1079,7 +1079,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         onKeyboardStateChanged(forceAllLabels = true)
     }
 
-    private fun discardInputForUnverifiedTarget(info: EditorInfo?) {
+    private fun discardInputForUnverifiedTarget(info: EditorInfo?, restarting: Boolean) {
         conversionJob?.cancel()
         resetKeyboardViewState()
         withoutEditorComposingSync {
@@ -1088,6 +1088,10 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         }
         coordinator.bindInputConnection(currentInputConnection)
         resetConversionState()
+        if (restarting) {
+            // 同じ入力欄の再開では、既存文字を残して未確定範囲だけ終える。
+            currentInputConnection?.finishComposingText()
+        }
     }
 
     private fun releasePressedKeys() {
@@ -1209,7 +1213,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
                 return
             }
             clearOrientationRestore()
-            discardInputForUnverifiedTarget(info)
+            discardInputForUnverifiedTarget(info, restarting)
         } finally {
             completeInputStartPair()
         }
