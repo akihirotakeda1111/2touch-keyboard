@@ -9,25 +9,44 @@ class CandidatePipelineTest {
     private val pipeline = CandidatePipeline(getJapanesePriority = { _, _ -> 0 })
 
     @Test
-    fun japanese_filtersAndRanksWhileKeepingReadingsAttached() {
+    fun japanese_ranksByReadingLength_whileKeepingShorterReadings() {
         val candidates = listOf(
             ConversionCandidate("漢字語", "かんじご"), ConversionCandidate("漢", "かん"),
             ConversionCandidate("漢字", "かんじ"), ConversionCandidate("感じ", ""),
         )
         assertEquals(
-            listOf(candidates[2], candidates[3], candidates[0]),
+            listOf(candidates[2], candidates[3], candidates[0], candidates[1]),
             pipeline.prepare(InputMode.HIRAGANA, "かんじ", candidates),
         )
     }
 
     @Test
-    fun japanese_fallsBackToInput_whenAllCandidatesAreFilteredOrMissing() {
-        for (candidates in listOf(emptyList(), listOf(ConversionCandidate("漢", "かん")))) {
-            assertEquals(
-                listOf(ConversionCandidate("かんじ", "かんじ")),
-                pipeline.prepare(InputMode.HIRAGANA, "かんじ", candidates),
-            )
-        }
+    fun japanese_fallsBackToInput_onlyWhenCandidatesAreMissing() {
+        assertEquals(
+            listOf(ConversionCandidate("かんじ", "かんじ")),
+            pipeline.prepare(InputMode.HIRAGANA, "かんじ", emptyList()),
+        )
+        assertEquals(
+            listOf(ConversionCandidate("漢", "かん")),
+            pipeline.prepare(InputMode.HIRAGANA, "かんじ", listOf(ConversionCandidate("漢", "かん"))),
+        )
+    }
+
+    @Test
+    fun japanese_keepsItteHomophones_withShorterContentReadings() {
+        val iku = ConversionCandidate("行って", "いって")
+        val literal = ConversionCandidate("いって", "いって")
+        val katakana = ConversionCandidate("イッテ", "いって")
+        val iu = ConversionCandidate("言って", "いっ")
+        val iuVariant = ConversionCandidate("云って", "いっ")
+        assertEquals(
+            listOf(iku, literal, katakana, iu, iuVariant),
+            pipeline.prepare(
+                InputMode.HIRAGANA,
+                "いって",
+                listOf(iku, literal, katakana, iu, iuVariant),
+            ),
+        )
     }
 
     @Test
@@ -43,16 +62,16 @@ class CandidatePipelineTest {
     }
 
     @Test
-    fun japanese_generalPriorityNeverRestoresShortReadings_orOvertakesExactGroup() {
+    fun japanese_boostedShortReadingStaysBehindExactGroup() {
         val pipeline = CandidatePipeline(getJapanesePriority = { _, value ->
             if (value == "漢" || value == "漢字語") 3 else 0
         })
+        val kanjiGo = ConversionCandidate("漢字語", "かんじご")
+        val kan = ConversionCandidate("漢", "かん")
+        val kanji = ConversionCandidate("漢字", "かんじ")
         assertEquals(
-            listOf(ConversionCandidate("漢字", "かんじ"), ConversionCandidate("漢字語", "かんじご")),
-            pipeline.prepare(InputMode.HIRAGANA, "かんじ", listOf(
-                ConversionCandidate("漢字語", "かんじご"), ConversionCandidate("漢", "かん"),
-                ConversionCandidate("漢字", "かんじ"),
-            )),
+            listOf(kanji, kanjiGo, kan),
+            pipeline.prepare(InputMode.HIRAGANA, "かんじ", listOf(kanjiGo, kan, kanji)),
         )
     }
 

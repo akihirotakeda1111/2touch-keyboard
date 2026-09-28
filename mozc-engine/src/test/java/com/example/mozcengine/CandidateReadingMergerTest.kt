@@ -89,7 +89,7 @@ class CandidateReadingMergerTest {
     }
 
     @Test
-    fun merge_keepsShorterReadingAcrossRefresh_soFilterCanHideIt() {
+    fun merge_keepsShorterReadingAcrossRefresh_andRankingRetainsIt() {
         val first = CandidateReadingMerger.merge(
             allCandidateWordReadings = listOf(
                 "漢" to "かん",
@@ -106,12 +106,13 @@ class CandidateReadingMergerTest {
             previousReadings = first.toMap(),
             emptyReadingFallback = "かんじ",
         )
-        val filtered = HiraganaPredictionSupport.filterCandidates(
+        val ranked = HiraganaPredictionSupport.rankEligibleCandidates(
             candidates = refresh.map { (value, reading) -> ConversionCandidate(value, reading) },
             input = "かんじ",
         )
 
-        assertEquals(listOf("漢字", "感じ"), filtered.map { it.value })
+        assertEquals(listOf("漢字", "感じ", "漢"), ranked.map { it.value })
+        assertEquals(listOf("かんじ", "かんじ", "かん"), ranked.map { it.reading })
     }
 
     @Test
@@ -177,7 +178,7 @@ class CandidateReadingMergerTest {
 
     @Test
     fun merge_withoutPreviousReadings_doesNotHideCandidateAfterUnrelatedComposition() {
-        val filtered = HiraganaPredictionSupport.filterCandidates(
+        val ranked = HiraganaPredictionSupport.rankEligibleCandidates(
             input = "にち",
             candidates = CandidateReadingMerger.merge(
                 allCandidateWordReadings = emptyList(),
@@ -191,6 +192,7 @@ class CandidateReadingMergerTest {
             ).map { (value, reading) -> ConversionCandidate(value, reading) },
         )
 
-        assertEquals(listOf("日"), filtered.map { it.value })
+        assertEquals(listOf("日"), ranked.map { it.value })
+        assertEquals(listOf("にち"), ranked.map { it.reading })
     }
 }

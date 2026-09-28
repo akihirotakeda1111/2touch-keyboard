@@ -26,4 +26,17 @@ class ConversionSessionTest {
         assertEquals(0, session.getSelectedIndex())
         assertEquals("あ", session.getSelectedCandidate())
     }
+
+    @Test
+    fun partialRange_keepsUnconvertedSuffix() {
+        val session = ConversionSession()
+        val composing = "きょうは"
+        session.setCandidates(listOf("今日", "きょう"))
+        session.activate(composing.length)
+        session.moveConversionEnd(delta = -1, composingLength = composing.length)
+
+        assertEquals("きょう", session.getConversionTarget(composing))
+        assertEquals("は", session.getRemainingSuffix(composing))
+        assertEquals(true, session.isPartialConversion(composing.length))
+    }
 }

@@ -7,9 +7,9 @@ import org.junit.Test
 class HiraganaPredictionSupportTest {
 
     @Test
-    fun rankCandidates_returnsEmpty_whenAllReadingsAreShorter() {
+    fun rankCandidates_keepsCandidates_whenAllReadingsAreShorter() {
         assertEquals(
-            emptyList<String>(),
+            listOf("漢", "感"),
             rankCandidates(
                 listOf("漢", "感"), "かんじ", listOf("かん", "かん"),
             ),
@@ -17,9 +17,9 @@ class HiraganaPredictionSupportTest {
     }
 
     @Test
-    fun rankCandidates_defaultsOnlyMissingReadings_afterFilteringEarlierCandidate() {
+    fun rankCandidates_defaultsMissingReadings_andKeepsShorterOnes() {
         assertEquals(
-            listOf("漢字", "感じ", "漢字語"),
+            listOf("漢字", "感じ", "漢", "漢字語"),
             rankCandidates(
                 listOf("漢", "漢字語", "漢字", "感じ"),
                 "かんじ",
@@ -124,36 +124,36 @@ class HiraganaPredictionSupportTest {
     }
 
     @Test
-    fun rankCandidates_hidesReadingsShorterThanInput() {
+    fun rankCandidates_keepsShorterReadingsAfterExactMatches() {
         val ranked = rankCandidates(
             candidates = listOf("漢", "漢字", "感", "感じ"),
             input = "かんじ",
             readings = listOf("かん", "かんじ", "かん", "かんじ"),
         )
 
-        assertEquals(listOf("漢字", "感じ"), ranked)
+        assertEquals(listOf("漢字", "感じ", "漢", "感"), ranked)
     }
 
     @Test
-    fun rankCandidates_keepsLongerReadingsAfterHidingShorterOnes() {
+    fun rankCandidates_keepsShorterAndLongerReadings() {
         val ranked = rankCandidates(
             candidates = listOf("愛", "亜", "相手", "合い", "挨拶"),
             input = "あい",
             readings = listOf("あい", "あ", "あいて", "あい", "あいさつ"),
         )
 
-        assertEquals(listOf("愛", "合い", "相手", "挨拶"), ranked)
+        assertEquals(listOf("愛", "合い", "亜", "相手", "挨拶"), ranked)
     }
 
     @Test
-    fun rankCandidates_hidesSoleCandidate_whenReadingIsShorterThanInput() {
+    fun rankCandidates_keepsSoleCandidate_whenReadingIsShorterThanInput() {
         val ranked = rankCandidates(
             candidates = listOf("漢"),
             input = "かんじ",
             readings = listOf("かん"),
         )
 
-        assertEquals(emptyList<String>(), ranked)
+        assertEquals(listOf("漢"), ranked)
     }
 
     @Test
@@ -180,18 +180,18 @@ class HiraganaPredictionSupportTest {
     }
 
     @Test
-    fun rankCandidates_hidesSupplementaryPlaneReadingShorterThanInput() {
+    fun rankCandidates_keepsSupplementaryPlaneReadingShorterThanInput() {
         val ranked = rankCandidates(
             candidates = listOf("𠮷", "𠮷野", "吉"),
             input = "𠮷野",
             readings = listOf("𠮷", "𠮷野", "よし"),
         )
 
-        assertEquals(listOf("𠮷野", "吉"), ranked)
+        assertEquals(listOf("𠮷野", "吉", "𠮷"), ranked)
     }
 
     @Test
-    fun rankCandidates_hidesBoostedCandidate_whenReadingIsShorterThanInput() {
+    fun rankCandidates_keepsBoostedShorterReadingBehindExactMatches() {
         val ranked = rankWithPrior(
             candidates = listOf("漢", "漢字", "感", "感じ"),
             input = "かんじ",
@@ -199,7 +199,20 @@ class HiraganaPredictionSupportTest {
             tsv = "かん\t漢\t3\n",
         )
 
-        assertEquals(listOf("漢字", "感じ"), ranked)
+        assertEquals(listOf("漢字", "感じ", "漢", "感"), ranked)
+    }
+
+    @Test
+    fun rankCandidates_keepsItteHomophones_whenContentReadingIsShorter() {
+        // Mozc stores the content reading 「いっ」 for 言って / 云って.
+        // Same-length readings stay first. This order is only an auxiliary sort.
+        val ranked = rankCandidates(
+            candidates = listOf("行って", "いって", "イッテ", "言って", "云って"),
+            input = "いって",
+            readings = listOf("いって", "いって", "いって", "いっ", "いっ"),
+        )
+
+        assertEquals(listOf("行って", "いって", "イッテ", "言って", "云って"), ranked)
     }
 
     @Test
@@ -302,8 +315,7 @@ class HiraganaPredictionSupportTest {
         val entries = candidates.mapIndexed { index, value ->
             ConversionCandidate(value, readings.getOrNull(index).orEmpty())
         }
-        val eligible = HiraganaPredictionSupport.filterCandidates(entries, input)
-        return HiraganaPredictionSupport.rankEligibleCandidates(eligible, input, getPriority).map { it.value }
+        return HiraganaPredictionSupport.rankEligibleCandidates(entries, input, getPriority).map { it.value }
     }
 
     private fun rankWithPrior(
