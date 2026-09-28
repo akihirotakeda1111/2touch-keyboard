@@ -60,6 +60,13 @@ android {
         }
     }
 
+    packaging {
+        jniLibs {
+            // Preserve the verified, release-built dependency byte for byte.
+            keepDebugSymbols += "**/libmozc.so"
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

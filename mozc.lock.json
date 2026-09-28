@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "repository": "google/mozc",
+  "commit": "d918f30063999d4ca250f76ced8b92169a0e0b25",
+  "bazel_version": "8.2.1",
+  "abis": ["arm64-v8a"],
+  "jni_symbol": "Java_com_google_android_apps_inputmethod_libs_mozc_session_MozcJNI_initialize"
+}

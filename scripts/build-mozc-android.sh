@@ -18,8 +18,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MOZC_SRC="${1:-${MOZC_SRC:-$ROOT_DIR/third_party/mozc/src}}"
-ABI="${MOZC_ABI:-arm64-v8a}"
-SKIP_UPDATE_DEPS="${SKIP_UPDATE_DEPS:-0}"
+ABI="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["abis"][0])' "$ROOT_DIR/mozc.lock.json")"
 
 JNI_OUT="$ROOT_DIR/mozc-engine/src/main/jniLibs/$ABI"
 ASSET_OUT="$ROOT_DIR/mozc-engine/src/main/assets"
@@ -32,15 +31,14 @@ if [[ ! -d "$MOZC_SRC" ]]; then
   exit 1
 fi
 
-export USE_BAZEL_VERSION="${USE_BAZEL_VERSION:-8.2.1}"
+python3 "$ROOT_DIR/scripts/mozc_artifact.py" check-source --source "$MOZC_SRC"
+export USE_BAZEL_VERSION="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["bazel_version"])' "$ROOT_DIR/mozc.lock.json")"
 
-if [[ "$SKIP_UPDATE_DEPS" != "1" ]]; then
-  echo "==> Downloading Mozc build dependencies (Android NDK, etc.)"
-  (
-    cd "$MOZC_SRC"
-    python3 build_tools/update_deps.py
-  )
-fi
+echo "==> Downloading pinned Mozc build dependencies (Android NDK, etc.)"
+(
+  cd "$MOZC_SRC"
+  python3 build_tools/update_deps.py
+)
 
 echo "==> Building libmozc.so (Android) in $MOZC_SRC"
 (

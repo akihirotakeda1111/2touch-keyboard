@@ -1,0 +1,153 @@
+name: Assemble APK
+
+on:
+  workflow_call:
+    inputs:
+      build_type:
+        type: string
+        required: true
+      expected_tag:
+        type: string
+        default: ''
+    secrets:
+      RELEASE_KEYSTORE_BASE64:
+        required: false
+      RELEASE_STORE_PASSWORD:
+        required: false
+      RELEASE_KEY_ALIAS:
+        required: false
+      RELEASE_KEY_PASSWORD:
+        required: false
+    outputs:
+      version-code:
+        value: ${{ jobs.apk.outputs.version-code }}
+      version-name:
+        value: ${{ jobs.apk.outputs.version-name }}
+
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    outputs:
+      version-code: ${{ steps.version.outputs.version-code }}
+      version-name: ${{ steps.version.outputs.version-name }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate build type
+        env:
+          BUILD_TYPE: ${{ inputs.build_type }}
+        run: '[[ "$BUILD_TYPE" == debug || "$BUILD_TYPE" == release ]]'
+      - name: Identify pinned Mozc dependency
+        id: mozc
+        run: python3 scripts/mozc_artifact.py identity
+      - name: Fetch and verify pinned Mozc dependency
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MOZC_TAG: ${{ steps.mozc.outputs.tag }}
+        run: |
+          mkdir -p build/mozc
+          if ! gh release view "$MOZC_TAG" --json isDraft --jq '.isDraft' | grep -Fx false; then
+            echo "::error::Missing published Mozc dependency: $MOZC_TAG. Run Build Mozc dependency at this commit first."
+            exit 1
+          fi
+          gh release download "$MOZC_TAG" --pattern 'mozc-android.zip*' --dir build/mozc
+          python3 scripts/mozc_artifact.py verify
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Install Android SDK packages
+        run: |
+          sdkmanager --install \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Read and validate app version
+        id: version
+        env:
+          EXPECTED_TAG: ${{ inputs.expected_tag }}
+        run: |
+          chmod +x gradlew
+          VERSION_INFO="$(./gradlew -q :app:printVersionInfo -PUPDATE_REPOSITORY="$GITHUB_REPOSITORY")"
+          IFS='|' read -r VERSION_CODE VERSION_NAME <<< "$VERSION_INFO"
+          [[ "$VERSION_CODE" =~ ^[1-9][0-9]*$ ]]
+          if [ -n "$EXPECTED_TAG" ] && [ "$EXPECTED_TAG" != "v$VERSION_NAME" ]; then
+            echo "::error::Tag does not match app versionName $VERSION_NAME"
+            exit 1
+          fi
+          echo "version-code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
+          echo "version-name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Validate release signing secrets
+        if: inputs.build_type == 'release'
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          test -n "$RELEASE_KEYSTORE_BASE64"
+          test -n "$RELEASE_STORE_PASSWORD"
+          test -n "$RELEASE_KEY_ALIAS"
+          test -n "$RELEASE_KEY_PASSWORD"
+
+      - name: Decode release keystore
+        if: inputs.build_type == 'release'
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          RELEASE_STORE_FILE: ${{ runner.temp }}/2touch-release.jks
+        run: printf '%s' "$RELEASE_KEYSTORE_BASE64" | base64 --decode > "$RELEASE_STORE_FILE"
+
+      - name: Build signed release APK
+        if: inputs.build_type == 'release'
+        env:
+          RELEASE_STORE_FILE: ${{ runner.temp }}/2touch-release.jks
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          ./gradlew testDebugUnitTest assembleRelease --no-daemon \
+            -PUPDATE_REPOSITORY="$GITHUB_REPOSITORY"
+
+      - name: Verify release APK signature
+        if: inputs.build_type == 'release'
+        run: |
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify \
+            --verbose \
+            --print-certs \
+            app/build/outputs/apk/release/app-release.apk
+
+      - name: Build debug APK
+        if: inputs.build_type == 'debug'
+        run: |
+          chmod +x gradlew
+          ./gradlew testDebugUnitTest assembleDebug --no-daemon \
+            -PUPDATE_REPOSITORY="$GITHUB_REPOSITORY"
+
+      - name: Verify APK contains the pinned Mozc dependency
+        env:
+          BUILD_TYPE: ${{ inputs.build_type }}
+        run: |
+          python3 scripts/mozc_artifact.py verify-apk \
+            --apk "app/build/outputs/apk/$BUILD_TYPE/app-$BUILD_TYPE.apk"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-${{ inputs.build_type }}
+          path: app/build/outputs/apk/${{ inputs.build_type }}/*.apk
+          if-no-files-found: error
+
+      - name: Remove decoded keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/2touch-release.jks"

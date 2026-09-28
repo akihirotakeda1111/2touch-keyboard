@@ -1,0 +1,40 @@
+name: Validate build configuration
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/**
+      - scripts/**
+      - mozc.lock.json
+      - mozc-engine/src/main/java/com/google/**
+      - mozc-engine/src/main/proto/**
+  push:
+    branches: [master]
+    paths:
+      - .github/workflows/**
+      - scripts/**
+      - mozc.lock.json
+      - mozc-engine/src/main/java/com/google/**
+      - mozc-engine/src/main/proto/**
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.6'
+          cache: false
+      - name: Validate workflows
+        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7 -shellcheck= -pyflakes=
+      - name: Validate Mozc packaging and shell syntax
+        run: |
+          bash -n scripts/build-mozc-android.sh
+          python3 -m unittest discover -s scripts -p 'test_*.py' -v
+          python3 scripts/mozc_artifact.py identity
