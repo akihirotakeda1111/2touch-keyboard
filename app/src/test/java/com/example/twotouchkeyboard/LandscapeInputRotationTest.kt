@@ -3,10 +3,14 @@ package com.example.twotouchkeyboard
 import android.app.Activity
 import android.content.res.Configuration
 import android.graphics.drawable.ColorDrawable
+import android.inputmethodservice.InputMethodService
 import android.os.Looper
 import android.text.InputType
+import android.text.Selection
+import android.text.SpannableStringBuilder
 import android.view.MotionEvent
 import android.view.View
+import android.view.inputmethod.BaseInputConnection
 import android.view.inputmethod.EditorInfo
 import android.widget.Button
 import android.widget.LinearLayout
@@ -15,7 +19,6 @@ import androidx.test.core.app.ApplicationProvider
 import java.util.concurrent.TimeUnit
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -94,44 +97,107 @@ class LandscapeInputRotationTest {
     }
 
     @Test
-    fun finishingInputDuringRotation_doesNotClearStateUntilFallback() {
+    fun sameSessionRestart_keepsWaitingState() {
         press(R.id.key_1)
         idle()
         changeOrientation()
+        service.onFinishInputView(false)
+        restartSameSession(editorWithoutId())
+
+        shadowOf(Looper.getMainLooper()).idleFor(1_500, TimeUnit.MILLISECONDS)
+        idle()
         assertEquals("い", label(R.id.key_2))
+        assertEquals("Ａ", label(R.id.key_6))
+        assertEquals("Ｅ", label(R.id.key_0))
+    }
+
+    @Test
+    fun finishingInputDuringRotation_clearsInternalStateWithoutWritingLater() {
+        val field = attachField(service, "残す")
+        press(R.id.key_1)
+        idle()
+        changeOrientation()
 
         service.onFinishInputView(true)
         idle()
-        assertEquals("い", label(R.id.key_2))
+        assertEquals("か", label(R.id.key_2))
+        assertEquals("残す", field.editable.toString())
 
-        shadowOf(Looper.getMainLooper()).idleFor(
-            TwoTouchKeyboardService.ORIENTATION_PRESERVE_WINDOW_MS,
-            TimeUnit.MILLISECONDS,
-        )
+        shadowOf(Looper.getMainLooper()).idleFor(1_500, TimeUnit.MILLISECONDS)
         idle()
+        assertEquals("か", label(R.id.key_2))
+        assertEquals("残す", field.editable.toString())
+    }
+
+    @Test
+    fun rotationToAnotherFieldWithoutId_doesNotInsertOldComposingText() {
+        service.onStartInput(editorWithoutId(), false)
+        service.onStartInputView(editorWithoutId(), false)
+        idle()
+        val original = attachField(service, "")
+        press(R.id.key_2)
+        press(R.id.key_1)
+        idle()
+        assertEquals("か", original.editable.toString())
+
+        changeOrientation()
+        val other = attachField(service, "既存")
+        service.onStartInput(editorWithoutId(), false)
+        service.onStartInputView(editorWithoutId(), false)
+        idle()
+
+        assertEquals("既存", other.editable.toString())
         assertEquals("か", label(R.id.key_2))
     }
 
     @Test
-    fun sameEditorRestart_keepsWaitingStateAndCancelsFallback() {
+    fun restoredComposing_isNotReusedForTheNextField() {
+        val field = attachField(service, "")
+        press(R.id.key_2)
         press(R.id.key_1)
         idle()
         changeOrientation()
-        service.onFinishInputView(true)
-        service.onStartInputView(editorInfo(), false)
+        restartSameSession(editorWithoutId())
+
+        val text = field.editable!!
+        assertEquals("か", text.toString())
+        assertEquals(0, BaseInputConnection.getComposingSpanStart(text))
+        assertEquals(1, BaseInputConnection.getComposingSpanEnd(text))
+
+        val other = attachField(service, "")
+        service.onStartInput(editorWithoutId(), false)
+        service.onStartInputView(editorWithoutId(), false)
         idle()
 
-        shadowOf(Looper.getMainLooper()).idleFor(
-            TwoTouchKeyboardService.ORIENTATION_PRESERVE_WINDOW_MS,
-            TimeUnit.MILLISECONDS,
-        )
+        assertEquals("", other.editable.toString())
+        assertEquals("か", label(R.id.key_2))
+    }
+
+    @Test
+    fun rotation_doesNotDuplicateTextTransformedByTheField() {
+        press(R.id.key_star)
         idle()
-        assertEquals("い", label(R.id.key_2))
-        assertNotEquals("か", label(R.id.key_6))
+        val field = attachField(service, "")
+        press(R.id.key_1)
+        idle()
+        assertEquals("a", field.editable.toString())
+        assertEquals("abc", label(R.id.key_1))
+        replaceFieldText(field, "A")
+
+        changeOrientation()
+        restartSameSession(editorInfo())
+
+        assertEquals("A", field.editable.toString())
+
+        // 内部のトグルは終わっているので、次のキーは続きの b ではなく新しい a になる。
+        press(R.id.key_1)
+        idle()
+        assertEquals("Aa", field.editable.toString())
     }
 
     @Test
     fun rotation_keepsConversionSelection() {
+        val field = attachField(service, "")
         press(R.id.key_1)
         press(R.id.key_1)
         idle()
@@ -149,11 +215,17 @@ class LandscapeInputRotationTest {
 
         assertEquals(selectedBefore, selectedCandidateText())
         assertTrue(candidatesOfCurrentKeyboard().childCount >= 2)
+        assertEquals("あ", field.editable.toString())
     }
 
     private fun rotate() {
         changeOrientation()
-        service.onStartInputView(editorInfo(), false)
+        restartSameSession(editorInfo())
+    }
+
+    private fun restartSameSession(info: EditorInfo) {
+        service.onStartInput(info, true)
+        service.onStartInputView(info, true)
         idle()
     }
 
@@ -206,6 +278,15 @@ class LandscapeInputRotationTest {
         }
     }
 
+    private fun editorWithoutId(): EditorInfo {
+        return EditorInfo().apply {
+            packageName = "com.example.notes"
+            fieldId = 0
+            inputType = InputType.TYPE_CLASS_TEXT
+            imeOptions = EditorInfo.IME_ACTION_DONE
+        }
+    }
+
     private fun idleMain() {
         shadowOf(Looper.getMainLooper()).idle()
     }
@@ -248,20 +329,24 @@ class HiraganaToggleRotationTest {
         activity.get().setContentView(keyboard)
         service.onStartInputView(textEditor(), false)
         flush(keyboard)
+        val field = attachField(service, "")
 
         press(keyboard, R.id.key_1)
         flush(keyboard)
         assertEquals("あいうえお", keyboard.findViewById<Button>(R.id.key_1).text.toString())
+        assertEquals("あ", field.editable.toString())
 
         val config = Configuration(service.resources.configuration)
         config.orientation = Configuration.ORIENTATION_LANDSCAPE
         service.onConfigurationChanged(config)
         keyboard = service.onCreateInputView()
         activity.get().setContentView(keyboard)
-        service.onStartInputView(textEditor(), false)
+        service.onStartInput(textEditor(), true)
+        service.onStartInputView(textEditor(), true)
         flush(keyboard)
 
         assertEquals("あいうえお", keyboard.findViewById<Button>(R.id.key_1).text.toString())
+        assertEquals("あ", field.editable.toString())
     }
 
     private fun flush(view: View) {
@@ -286,4 +371,24 @@ class HiraganaToggleRotationTest {
             imeOptions = EditorInfo.IME_ACTION_DONE
         }
     }
+}
+
+private fun attachField(service: InputMethodService, text: String): BaseInputConnection {
+    val editable = SpannableStringBuilder(text)
+    Selection.setSelection(editable, editable.length)
+    val view = View(service)
+    val connection = object : BaseInputConnection(view, true) {
+        override fun getEditable() = editable
+    }
+    val field = InputMethodService::class.java.getDeclaredField("mStartedInputConnection")
+    field.isAccessible = true
+    field.set(service, connection)
+    return connection
+}
+
+private fun replaceFieldText(connection: BaseInputConnection, text: String) {
+    val editable = connection.editable!!
+    editable.replace(0, editable.length, text)
+    BaseInputConnection.removeComposingSpans(editable)
+    Selection.setSelection(editable, editable.length)
 }

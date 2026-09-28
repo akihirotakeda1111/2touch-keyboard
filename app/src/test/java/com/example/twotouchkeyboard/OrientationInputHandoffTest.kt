@@ -7,27 +7,27 @@ import org.junit.Test
 class OrientationInputHandoffTest {
 
     @Test
-    fun sameEditor_keepsInputUntilCleared() {
+    fun sameSessionRestart_consumesPendingRestore() {
         val handoff = OrientationInputHandoff()
-        val editor = editor()
+        handoff.onOrientationChanged(sessionId = 4)
 
+        assertTrue(handoff.isPending)
+        assertTrue(handoff.consumeIfSameSession(sessionId = 4, restarting = true))
         assertFalse(handoff.isPending)
-        handoff.onOrientationChanged(editor)
+        assertFalse(handoff.consumeIfSameSession(sessionId = 4, restarting = true))
+    }
 
-        assertTrue(handoff.shouldKeepInput(editor))
-        assertFalse(handoff.shouldKeepInput(editor.copy(fieldId = 8)))
+    @Test
+    fun newSession_doesNotConsumePendingRestore() {
+        val handoff = OrientationInputHandoff()
+        handoff.onOrientationChanged(sessionId = 4)
+
+        assertFalse(handoff.consumeIfSameSession(sessionId = 4, restarting = false))
+        assertFalse(handoff.consumeIfSameSession(sessionId = 9, restarting = true))
+        assertTrue(handoff.isPending)
 
         handoff.clear()
         assertFalse(handoff.isPending)
-        assertFalse(handoff.shouldKeepInput(editor))
-    }
-
-    private fun editor(): OrientationInputHandoff.EditorKey {
-        return OrientationInputHandoff.EditorKey(
-            packageName = "com.example.notes",
-            fieldId = 7,
-            inputType = 1,
-            imeOptions = 2,
-        )
+        assertFalse(handoff.consumeIfSameSession(sessionId = 4, restarting = true))
     }
 }

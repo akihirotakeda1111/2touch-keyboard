@@ -1,42 +1,34 @@
 package com.example.twotouchkeyboard
 
-import android.view.inputmethod.EditorInfo
-
 /**
- * 回転で入力ビューが作り直されても、同じ入力先の未確定状態を破棄しない。
+ * 回転で入力ビューが作り直されても、同じ入力セッションの未確定状態を破棄しない。
  *
- * 2タッチの1打目待ち、トグル中の文字、変換中の文字列と選択はサービス側に残す。
- * 別の入力先へ移ったときだけ、通常の確定と破棄に戻す。
+ * [restarting] が true の再開だけを、同じ入力欄での再開として扱う。
+ * パッケージ名や入力欄 ID では欄を区別しない。画面の再生成で新しいセッションが
+ * 始まる場合は、ここだけでは復元しない。
  */
 internal class OrientationInputHandoff {
-    data class EditorKey(
-        val packageName: String?,
-        val fieldId: Int,
-        val inputType: Int,
-        val imeOptions: Int,
-    )
-
-    private var pendingEditor: EditorKey? = null
+    private var pendingSessionId: Long? = null
 
     val isPending: Boolean
-        get() = pendingEditor != null
+        get() = pendingSessionId != null
 
-    fun onOrientationChanged(editor: EditorKey) {
-        pendingEditor = editor
+    fun onOrientationChanged(sessionId: Long) {
+        pendingSessionId = sessionId
     }
 
-    fun shouldKeepInput(editor: EditorKey): Boolean = pendingEditor == editor
+    /**
+     * 復元待ちを、同じセッションの再開として確認できたときだけ消費する。
+     * 新しいセッションでは消費せず、呼び出し側が待ちを解除する。
+     */
+    fun consumeIfSameSession(sessionId: Long, restarting: Boolean): Boolean {
+        val pending = pendingSessionId ?: return false
+        if (!restarting || pending != sessionId) return false
+        pendingSessionId = null
+        return true
+    }
 
     fun clear() {
-        pendingEditor = null
+        pendingSessionId = null
     }
-}
-
-internal fun EditorInfo?.toEditorKey(): OrientationInputHandoff.EditorKey {
-    return OrientationInputHandoff.EditorKey(
-        packageName = this?.packageName,
-        fieldId = this?.fieldId ?: 0,
-        inputType = this?.inputType ?: 0,
-        imeOptions = this?.imeOptions ?: 0,
-    )
 }

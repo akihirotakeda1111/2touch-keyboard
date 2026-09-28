@@ -3,9 +3,6 @@ package com.example.twotouchkeyboard
 import android.content.res.Configuration
 import android.inputmethodservice.InputMethodService
 import android.os.Build
-import android.os.Handler
-import android.os.Looper
-import android.os.SystemClock
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
@@ -85,10 +82,10 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     private var appliedOrientation = Configuration.ORIENTATION_UNDEFINED
     private var recreatingInputView = false
     private val orientationHandoff = OrientationInputHandoff()
-    private var orientationPreserveUntilElapsedMs = 0L
-    private val mainHandler = Handler(Looper.getMainLooper())
-    private var orientationFinalizeRunnable: Runnable? = null
-    private var pendingOrientationFinalize: (() -> Unit)? = null
+    private var orientationFieldBefore = ComposingSpanRestore.FieldObservation.Unavailable
+    private var inputSessionId = 0L
+    private var inputStartPairOpen = false
+    private var suppressEditorComposingSync = false
 
     private var currentHiraganaMethod = CharacterInputMethod.TWOTOUCH
     private var currentAlphabetMethod = CharacterInputMethod.TOGGLE
@@ -655,6 +652,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     }
 
     private fun updateComposingText(text: String) {
+        if (suppressEditorComposingSync) return
         val inputConnection = currentInputConnection ?: return
         // finishComposingText() commits the current composing span. When deleting the
         // last character we must clear composing without committing it.
@@ -1009,33 +1007,68 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     }
 
     private fun beginOrientationHandoff() {
-        cancelOrientationFallbackFinalize()
         if (!::coordinator.isInitialized) return
-        orientationHandoff.onOrientationChanged(coordinator.getCurrentEditorInfo().toEditorKey())
-        orientationPreserveUntilElapsedMs =
-            SystemClock.uptimeMillis() + ORIENTATION_PRESERVE_WINDOW_MS
+        orientationHandoff.onOrientationChanged(inputSessionId)
+        orientationFieldBefore = ComposingSpanRestore.observe(currentInputConnection)
     }
 
-    private fun rotationPreserveWindowActive(): Boolean {
-        return orientationHandoff.isPending &&
-            SystemClock.uptimeMillis() <= orientationPreserveUntilElapsedMs
+    private fun clearOrientationRestore() {
+        orientationHandoff.clear()
+        orientationFieldBefore = ComposingSpanRestore.FieldObservation.Unavailable
     }
 
-    private fun shouldPreserveInput(editorKey: OrientationInputHandoff.EditorKey): Boolean {
-        if (recreatingInputView) return true
-        return rotationPreserveWindowActive() && orientationHandoff.shouldKeepInput(editorKey)
+    private fun beginInputStart(restarting: Boolean) {
+        if (inputStartPairOpen) return
+        inputStartPairOpen = true
+        if (!restarting) {
+            inputSessionId += 1
+            clearOrientationRestore()
+        }
     }
 
-    private fun shouldDeferInputFinalization(finishingInput: Boolean): Boolean {
-        if (recreatingInputView) return true
-        return finishingInput && rotationPreserveWindowActive()
+    private fun completeInputStartPair() {
+        inputStartPairOpen = false
+    }
+
+    private fun withoutEditorComposingSync(block: () -> Unit) {
+        val previous = suppressEditorComposingSync
+        suppressEditorComposingSync = true
+        if (::coordinator.isInitialized) {
+            coordinator.setEditorSyncSuppressed(true)
+        }
+        try {
+            block()
+        } finally {
+            if (::coordinator.isInitialized) {
+                coordinator.setEditorSyncSuppressed(previous)
+            }
+            suppressEditorComposingSync = previous
+        }
     }
 
     private fun rebindPreservedInput(info: EditorInfo?) {
         coordinator.updateEditorInfoPreservingInput(info)
-        coordinator.bindInputConnection(currentInputConnection)
-        currentInputConnection?.let { connection ->
-            ComposingSpanRestore.apply(connection, coordinator.getComposingText())
+        val connection = currentInputConnection
+        coordinator.bindInputConnection(connection)
+        val before = orientationFieldBefore
+        orientationFieldBefore = ComposingSpanRestore.FieldObservation.Unavailable
+        val composing = coordinator.getComposingText()
+        val action = if (connection == null) {
+            if (composing.isEmpty()) {
+                ComposingSpanRestore.Action.None
+            } else {
+                ComposingSpanRestore.Action.AbandonInternal
+            }
+        } else {
+            ComposingSpanRestore.apply(connection, composing, before)
+        }
+        if (action == ComposingSpanRestore.Action.AbandonInternal) {
+            withoutEditorComposingSync {
+                coordinator.discardUnverifiedComposing()
+            }
+            resetConversionState()
+            // 同じセッションの既存文字は残し、未確定の区間だけ終える。
+            connection?.finishComposingText()
         }
         if (symbolKeyboardVisible) {
             showSymbolKeyboard()
@@ -1046,35 +1079,15 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         onKeyboardStateChanged(forceAllLabels = true)
     }
 
-    private fun scheduleOrientationFallbackFinalize() {
-        cancelOrientationFallbackFinalize()
-        val connection = currentInputConnection
-        val action = {
-            pendingOrientationFinalize = null
-            if (orientationHandoff.isPending || recreatingInputView) {
-                orientationHandoff.clear()
-                finalizeInputState(connection)
-                if (::coordinator.isInitialized) {
-                    coordinator.resetInputSession()
-                }
-            }
+    private fun discardInputForUnverifiedTarget(info: EditorInfo?) {
+        conversionJob?.cancel()
+        resetKeyboardViewState()
+        withoutEditorComposingSync {
+            coordinator.discardUnverifiedComposing()
+            coordinator.applyEditorInfo(info)
         }
-        pendingOrientationFinalize = action
-        val runnable = Runnable { pendingOrientationFinalize?.invoke() }
-        orientationFinalizeRunnable = runnable
-        mainHandler.postDelayed(runnable, ORIENTATION_PRESERVE_WINDOW_MS)
-    }
-
-    private fun cancelOrientationFallbackFinalize() {
-        orientationFinalizeRunnable?.let { mainHandler.removeCallbacks(it) }
-        orientationFinalizeRunnable = null
-        pendingOrientationFinalize = null
-    }
-
-    private fun flushOrientationFallbackFinalize() {
-        val action = pendingOrientationFinalize ?: return
-        cancelOrientationFallbackFinalize()
-        action.invoke()
+        coordinator.bindInputConnection(currentInputConnection)
+        resetConversionState()
     }
 
     private fun releasePressedKeys() {
@@ -1180,39 +1193,53 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
         }
     }
 
+    override fun onStartInput(attribute: EditorInfo?, restarting: Boolean) {
+        super.onStartInput(attribute, restarting)
+        inputStartPairOpen = false
+        beginInputStart(restarting)
+    }
+
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
-        if (!::coordinator.isInitialized) return
-
-        val editorKey = info.toEditorKey()
-        if (shouldPreserveInput(editorKey)) {
-            cancelOrientationFallbackFinalize()
-            rebindPreservedInput(info)
-            return
+        beginInputStart(restarting)
+        try {
+            if (!::coordinator.isInitialized) return
+            if (orientationHandoff.consumeIfSameSession(inputSessionId, restarting)) {
+                rebindPreservedInput(info)
+                return
+            }
+            clearOrientationRestore()
+            discardInputForUnverifiedTarget(info)
+        } finally {
+            completeInputStartPair()
         }
+    }
 
-        flushOrientationFallbackFinalize()
-        orientationHandoff.clear()
-        conversionJob?.cancel()
-        resetKeyboardViewState()
-        coordinator.applyEditorInfo(info)
-        coordinator.bindInputConnection(currentInputConnection)
-        coordinator.resetInputSession()
-        resetConversionState()
-        currentInputConnection?.finishComposingText()
+    override fun onFinishInput() {
+        inputStartPairOpen = false
+        if (!recreatingInputView) {
+            clearOrientationRestore()
+        }
+        super.onFinishInput()
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {
         stopDeleteRepeat()
         releasePressedKeys()
-        if (::coordinator.isInitialized && shouldDeferInputFinalization(finishingInput)) {
-            scheduleOrientationFallbackFinalize()
+        if (recreatingInputView || (!finishingInput && orientationHandoff.isPending)) {
             super.onFinishInputView(finishingInput)
             return
         }
-        cancelOrientationFallbackFinalize()
-        if (orientationHandoff.isPending) {
-            orientationHandoff.clear()
+        if (finishingInput && orientationHandoff.isPending) {
+            clearOrientationRestore()
+            if (::coordinator.isInitialized) {
+                withoutEditorComposingSync {
+                    coordinator.discardUnverifiedComposing()
+                }
+                resetConversionState()
+            }
+            super.onFinishInputView(finishingInput)
+            return
         }
         if (::coordinator.isInitialized) {
             finalizeInputState()
@@ -1224,12 +1251,12 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     override fun onDestroy() {
         lifecycleRegistry.currentState = Lifecycle.State.DESTROYED
         stopDeleteRepeat()
-        cancelOrientationFallbackFinalize()
         if (orientationHandoff.isPending && ::coordinator.isInitialized) {
-            val connection = currentInputConnection
-            orientationHandoff.clear()
-            finalizeInputState(connection)
-            coordinator.resetInputSession()
+            clearOrientationRestore()
+            withoutEditorComposingSync {
+                coordinator.discardUnverifiedComposing()
+            }
+            resetConversionState()
         }
         settingsCollectJob?.cancel()
         toggleAutoCommitJob?.cancel()
@@ -1241,7 +1268,6 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     }
 
     companion object {
-        internal const val ORIENTATION_PRESERVE_WINDOW_MS = 1_500L
         private const val INDEX_MAIN_KEYBOARD = 0
         private const val INDEX_SYMBOL_KEYBOARD = 1
         private const val DELETE_REPEAT_INITIAL_DELAY_MS = 400L
