@@ -53,6 +53,16 @@ class KeyboardInputCoordinator(
         currentEditorInfo = info
     }
 
+    /**
+     * 回転後も2タッチの待ちやトグル中の文字を消さないよう、入力処理はリセットしない。
+     */
+    fun updateEditorInfoPreservingInput(info: EditorInfo?) {
+        if (info == null) return
+        currentEditorInfo = info
+        fieldProfile = InputFieldProfileResolver.resolve(info)
+        listener.onStateChanged()
+    }
+
     fun applyEditorInfo(info: EditorInfo?) {
         currentEditorInfo = info
         fieldProfile = InputFieldProfileResolver.resolve(info)

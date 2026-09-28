@@ -3,7 +3,8 @@ package com.example.twotouchkeyboard
 /**
  * 記号パネルの配置と、入力モードごとの文字。
  *
- * 4列×6行のうち23マスが記号で、右下は閉じるキー。
+ * 縦表示は4列×6行。横表示は同じ読み順を8列×3行へ広げる。
+ * どちらも23マスが記号で、末尾は閉じるキー。段数は通常キーボードと揃える。
  * パネルを開いた時点の入力モードで表示と入力文字を決める。
  * ひらがなは全角、英字と数字は半角。
  * 「、。」は残し、追加する「，．」とは別キーにする。
@@ -14,6 +15,10 @@ object SymbolPanel {
     const val ROW_COUNT = 6
     const val CLOSE_COLUMN = 3
     const val CLOSE_ROW = 5
+    const val LANDSCAPE_COLUMN_COUNT = 8
+    const val LANDSCAPE_ROW_COUNT = 3
+    const val LANDSCAPE_CLOSE_COLUMN = 7
+    const val LANDSCAPE_CLOSE_ROW = 2
 
     data class Key(
         val viewId: Int,
@@ -26,6 +31,17 @@ object SymbolPanel {
             InputMode.HIRAGANA -> fullWidth
             InputMode.ALPHABET, InputMode.NUMBER -> halfWidth
         }
+
+        /** 縦の読み順を保ったまま、横表示の8列へ割り当てた列。 */
+        val landscapeColumn: Int
+            get() = linearIndex % LANDSCAPE_COLUMN_COUNT
+
+        /** 縦の読み順を保ったまま、横表示の3段へ割り当てた行。 */
+        val landscapeRow: Int
+            get() = linearIndex / LANDSCAPE_COLUMN_COUNT
+
+        private val linearIndex: Int
+            get() = row * COLUMN_COUNT + column
     }
 
     val keys: List<Key> = listOf(
@@ -74,6 +90,29 @@ object SymbolPanel {
                 }
             }
         }
+        val closeIndex = CLOSE_ROW * COLUMN_COUNT + CLOSE_COLUMN
+        require(LANDSCAPE_CLOSE_COLUMN == closeIndex % LANDSCAPE_COLUMN_COUNT) {
+            "Landscape close column must stay at the end of the reading order."
+        }
+        require(LANDSCAPE_CLOSE_ROW == closeIndex / LANDSCAPE_COLUMN_COUNT) {
+            "Landscape close row must stay at the end of the reading order."
+        }
+        val landscapeOccupied = keys.map { it.landscapeColumn to it.landscapeRow }.toSet()
+        require(landscapeOccupied.size == keys.size) {
+            "Landscape symbol keys must occupy distinct cells."
+        }
+        require((LANDSCAPE_CLOSE_COLUMN to LANDSCAPE_CLOSE_ROW) !in landscapeOccupied) {
+            "Landscape close cell must not contain a symbol."
+        }
+        for (row in 0 until LANDSCAPE_ROW_COUNT) {
+            for (column in 0 until LANDSCAPE_COLUMN_COUNT) {
+                val isCloseCell = column == LANDSCAPE_CLOSE_COLUMN && row == LANDSCAPE_CLOSE_ROW
+                val occupiedBySymbol = (column to row) in landscapeOccupied
+                require(occupiedBySymbol != isCloseCell) {
+                    "Unexpected landscape symbol cell at column=$column row=$row."
+                }
+            }
+        }
     }
 
     /** パネルを開いた時点のモードで固定する、表示と入力で共通の文字。 */
@@ -85,6 +124,15 @@ object SymbolPanel {
         return (0 until ROW_COUNT).map { row ->
             keys.filter { it.row == row }
                 .sortedBy { it.column }
+                .map { it.characterFor(mode) }
+        }
+    }
+
+    /** 横表示の段。閉じるキーのマスは含まない。 */
+    fun landscapeRowsFor(mode: InputMode): List<List<String>> {
+        return (0 until LANDSCAPE_ROW_COUNT).map { row ->
+            keys.filter { it.landscapeRow == row }
+                .sortedBy { it.landscapeColumn }
                 .map { it.characterFor(mode) }
         }
     }
