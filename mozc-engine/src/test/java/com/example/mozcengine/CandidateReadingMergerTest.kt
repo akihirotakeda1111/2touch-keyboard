@@ -89,7 +89,7 @@ class CandidateReadingMergerTest {
     }
 
     @Test
-    fun merge_keepsShorterReadingAcrossRefresh_soFilterCanHideIt() {
+    fun merge_keepsShorterReadingAcrossRefresh_andFilterRetainsIt() {
         val first = CandidateReadingMerger.merge(
             allCandidateWordReadings = listOf(
                 "漢" to "かん",
@@ -111,7 +111,8 @@ class CandidateReadingMergerTest {
             input = "かんじ",
         )
 
-        assertEquals(listOf("漢字", "感じ"), filtered.map { it.value })
+        assertEquals(listOf("漢", "漢字", "感じ"), filtered.map { it.value })
+        assertEquals(listOf("かん", "かんじ", "かんじ"), filtered.map { it.reading })
     }
 
     @Test

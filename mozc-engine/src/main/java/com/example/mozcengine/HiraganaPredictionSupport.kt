@@ -1,23 +1,22 @@
 package com.example.mozcengine
 
 /**
- * CandidatePipeline から呼ぶ、日本語候補の除外・並べ替えポリシー。
+ * CandidatePipeline から呼ぶ、日本語候補の残し方と並べ替え。
  *
- * filterCandidates は読み方が入力文字数未満の候補を除外する。
- * rankEligibleCandidates は適格候補のみを受け取り、同じ読み長の候補を優先する。
+ * 読み長では候補を除外しない。入力より短い読み、長い読み、読みが空の候補も残す。
+ * Mozc は活用語の CandidateWord.key に内容語の読みだけを入れることがある。
+ * 「いって」に対する「言って」「云って」の key は「いっ」になり、長さでは落とせない。
+ * rankEligibleCandidates は同じ読み長の候補を先に並べる。
  * 読み方が空の候補は入力全体を読み方とみなす。同じ読み長・一般優先度なら取得順を維持する。
  * 任意の一般優先度は同じ読み長グループ内だけで最大3枠まで前進させる。
  */
 object HiraganaPredictionSupport {
 
+    @Suppress("UNUSED_PARAMETER")
     fun filterCandidates(
         candidates: List<ConversionCandidate>,
         input: String,
-    ): List<ConversionCandidate> {
-        if (input.isEmpty()) return candidates
-        val inputLength = characterCount(input)
-        return candidates.filter { characterCount(it.reading.ifEmpty { input }) >= inputLength }
-    }
+    ): List<ConversionCandidate> = candidates
 
     fun rankEligibleCandidates(
         candidates: List<ConversionCandidate>,
