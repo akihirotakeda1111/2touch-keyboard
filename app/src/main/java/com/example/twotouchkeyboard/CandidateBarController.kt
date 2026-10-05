@@ -112,6 +112,8 @@ class CandidateBarController(
             }
             container.addView(itemView)
         }
+        // 変換候補のスクロール位置を引き継ぐと、先頭の機能キーが画面外に残る。
+        scrollView.scrollTo(0, 0)
     }
 
     private fun scrollToSelectedCandidate(selectedIndex: Int) {
