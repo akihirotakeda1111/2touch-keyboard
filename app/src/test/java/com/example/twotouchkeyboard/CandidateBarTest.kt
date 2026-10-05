@@ -9,6 +9,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.GridLayout
+import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.content.ContextCompat
@@ -88,6 +89,36 @@ class CandidateBarControllerTest {
         assertEquals(1, candidateContainer.childCount)
         assertEquals(context.getString(R.string.key_settings), actionViewAt(0).text.toString())
         assertEquals(CandidateBarAction.OPEN_SETTINGS, actionViewAt(0).tag)
+    }
+
+    @Test
+    fun switchingToFunctionActions_scrollsBackToStart() {
+        val scrollView = keyboardView.findViewById<HorizontalScrollView>(R.id.candidate_scroll)
+        refresh(
+            candidates = List(20) { index -> "長い変換候補$index" },
+            highlightSelection = false,
+        )
+        measure(keyboardView, width = 480)
+        layout(keyboardView)
+        assertTrue(candidateContainer.width > scrollView.width)
+        scrollView.scrollTo(candidateContainer.width, 0)
+        assertTrue(scrollView.scrollX > 0)
+
+        refresh(
+            actions = List(20) {
+                CandidateBarActionSpec(CandidateBarAction.OPEN_SETTINGS, R.string.key_settings)
+            },
+        )
+        measure(keyboardView, width = 480)
+        layout(keyboardView)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertTrue(candidateContainer.width > scrollView.width)
+        assertEquals(0, scrollView.scrollX)
+        assertEquals(context.getString(R.string.key_settings), actionViewAt(0).text.toString())
+        assertEquals(0, actionViewAt(0).left)
+        assertTrue(actionViewAt(0).right > scrollView.scrollX)
+        assertTrue(actionViewAt(0).left < scrollView.scrollX + scrollView.width)
     }
 
     @Test
@@ -254,8 +285,8 @@ class CandidateBarControllerTest {
         return candidateContainer.getChildAt(index).findViewById<TextView>(R.id.candidate_text).text.toString()
     }
 
-    private fun measure(view: View) {
-        val widthSpec = View.MeasureSpec.makeMeasureSpec(1080, View.MeasureSpec.EXACTLY)
+    private fun measure(view: View, width: Int = 1080) {
+        val widthSpec = View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY)
         val heightSpec = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
         view.measure(widthSpec, heightSpec)
     }
