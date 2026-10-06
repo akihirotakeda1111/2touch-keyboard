@@ -127,6 +127,13 @@ class CandidateBarController(
 
 internal fun settingsActivityIntent(context: Context): Intent {
     return Intent(context, SettingsActivity::class.java).apply {
-        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        // IME は Activity 以外から起動する。NEW_TASK だけだと、同じタスクの最前面が
+        // InputTryActivity のときその画面が復帰する。CLEAR_TOP と SINGLE_TOP で
+        // 既存の SettingsActivity を前面に戻し、その上の画面だけを閉じる。
+        addFlags(
+            Intent.FLAG_ACTIVITY_NEW_TASK or
+                Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                Intent.FLAG_ACTIVITY_SINGLE_TOP,
+        )
     }
 }
