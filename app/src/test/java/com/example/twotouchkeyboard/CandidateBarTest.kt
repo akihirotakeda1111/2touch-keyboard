@@ -300,12 +300,11 @@ class CandidateBarControllerTest {
 class CandidateBarServiceTest {
 
     @Test
-    fun settingsIntent_targetsSettingsActivityWithNewTask() {
+    fun settingsIntent_setsNewTaskClearTopAndSingleTop() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val intent = settingsActivityIntent(context)
 
-        assertEquals(SettingsActivity::class.java.name, intent.component?.className)
-        assertEquals(Intent.FLAG_ACTIVITY_NEW_TASK, intent.flags and Intent.FLAG_ACTIVITY_NEW_TASK)
+        assertSettingsLaunchFlags(intent)
     }
 
     @Test
@@ -325,8 +324,16 @@ class CandidateBarServiceTest {
         shadowOf(Looper.getMainLooper()).idle()
 
         val started = shadowOf(service).nextStartedActivity
-        assertEquals(SettingsActivity::class.java.name, started.component?.className)
-        assertEquals(Intent.FLAG_ACTIVITY_NEW_TASK, started.flags and Intent.FLAG_ACTIVITY_NEW_TASK)
+        assertSettingsLaunchFlags(started)
+    }
+
+    private fun assertSettingsLaunchFlags(intent: Intent) {
+        val expected = Intent.FLAG_ACTIVITY_NEW_TASK or
+            Intent.FLAG_ACTIVITY_CLEAR_TOP or
+            Intent.FLAG_ACTIVITY_SINGLE_TOP
+        assertEquals(SettingsActivity::class.java.name, intent.component?.className)
+        assertEquals(expected, intent.flags and expected)
+        assertEquals(expected, intent.flags)
     }
 
     @Test
