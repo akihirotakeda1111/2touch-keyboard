@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!-- キーボードアプリとは別タスクの「別アプリ」。 -->
+        <activity
+            android:name=".OtherAppActivity"
+            android:exported="true"
+            android:label="別アプリ"
+            android:taskAffinity="com.example.twotouchkeyboard.other"
+            android:windowSoftInputMode="stateVisible|adjustResize" />
+    </application>
+
+</manifest>

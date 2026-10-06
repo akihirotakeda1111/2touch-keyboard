@@ -11,6 +11,7 @@
     <string name="input_try_title">お試し入力</string>
     <string name="key_delete">削除</string>
     <string name="key_symbols">記号</string>
+    <string name="key_settings">設定</string>
     <string name="key_symbol_close">閉じる</string>
     <string name="key_mode_switch">切替</string>
     <string name="key_text_modifier_kana">小゛゜</string>
