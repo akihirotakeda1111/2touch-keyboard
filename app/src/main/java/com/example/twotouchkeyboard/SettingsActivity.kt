@@ -444,6 +444,9 @@ private fun SettingsScreen(
                 onClearHistory = onClearCandidateUsageHistory,
             )
 
+            Spacer(modifier = Modifier.height(24.dp))
+            com.example.twotouchkeyboard.dictionary.UserDictionarySection()
+
             Spacer(modifier = Modifier.height(32.dp))
             HorizontalDivider()
             Spacer(modifier = Modifier.height(24.dp))
