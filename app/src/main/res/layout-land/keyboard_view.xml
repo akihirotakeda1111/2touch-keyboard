@@ -5,12 +5,12 @@
     android:background="@android:color/transparent"
     android:orientation="vertical">
 
-    <!-- 高さは常時確保。背景は常時透過し、背面のコンテンツが見える。 -->
+    <!-- 高さは常時確保。背景はキーボードと同じ不透明色に統一。 -->
     <HorizontalScrollView
         android:id="@+id/candidate_scroll"
         android:layout_width="match_parent"
         android:layout_height="@dimen/candidate_bar_height"
-        android:background="@android:color/transparent"
+        android:background="@color/keyboard_background"
         android:fillViewport="true"
         android:scrollbars="none">
 
