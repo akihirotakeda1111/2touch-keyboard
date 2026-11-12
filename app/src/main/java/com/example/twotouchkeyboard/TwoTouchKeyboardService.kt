@@ -113,7 +113,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
             com.example.twotouchkeyboard.dictionary.UserDictionaryRepository(applicationContext)
                 .snapshot.collect { snapshot ->
                     dictionarySnapshot = snapshot
-                    if (::coordinator.isInitialized && ::candidateContainer.isInitialized) {
+                    if (::coordinator.isInitialized && ::candidateBarController.isInitialized) {
                         val composing = coordinator.getComposingText()
                         if (composing.isNotEmpty()) requestConversion(composing)
                     }
@@ -657,6 +657,11 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
             CandidateBarAction.OPEN_SETTINGS -> {
                 requestHideSelf(0)
                 startActivity(settingsActivityIntent(this))
+            }
+            else -> {
+                val connection = currentInputConnection ?: return
+                withoutEditorComposingSync { commitComposingForSymbolTransition() }
+                performCandidateBarEdit(connection, action)
             }
         }
     }

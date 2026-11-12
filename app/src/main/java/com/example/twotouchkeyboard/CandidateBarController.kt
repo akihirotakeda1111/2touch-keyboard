@@ -10,6 +10,10 @@ import androidx.core.content.ContextCompat
 
 enum class CandidateBarAction {
     OPEN_SETTINGS,
+    PASTE,
+    SELECT_ALL,
+    COPY,
+    CUT,
 }
 
 data class CandidateBarActionSpec(
@@ -20,10 +24,11 @@ data class CandidateBarActionSpec(
 object CandidateBarActions {
     /** 変換候補がないときに候補バーへ並べる機能キー。 */
     val idle: List<CandidateBarActionSpec> = listOf(
-        CandidateBarActionSpec(
-            action = CandidateBarAction.OPEN_SETTINGS,
-            labelRes = R.string.key_settings,
-        ),
+        CandidateBarActionSpec(CandidateBarAction.SELECT_ALL, R.string.key_select_all),
+        CandidateBarActionSpec(CandidateBarAction.COPY, R.string.key_copy),
+        CandidateBarActionSpec(CandidateBarAction.CUT, R.string.key_cut),
+        CandidateBarActionSpec(CandidateBarAction.PASTE, R.string.key_paste),
+        CandidateBarActionSpec(CandidateBarAction.OPEN_SETTINGS, R.string.key_settings),
     )
 }
 

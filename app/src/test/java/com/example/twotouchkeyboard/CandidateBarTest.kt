@@ -42,15 +42,12 @@ class CandidateBarControllerTest {
     }
 
     @Test
-    fun idleActions_defineSettingsKey() {
+    fun idleActions_showEditingCommandsBeforeSettings() {
         assertEquals(
-            listOf(
-                CandidateBarActionSpec(
-                    action = CandidateBarAction.OPEN_SETTINGS,
-                    labelRes = R.string.key_settings,
-                ),
-            ),
-            CandidateBarActions.idle,
+            listOf(CandidateBarAction.SELECT_ALL, CandidateBarAction.COPY,
+                CandidateBarAction.CUT, CandidateBarAction.PASTE,
+                CandidateBarAction.OPEN_SETTINGS),
+            CandidateBarActions.idle.map { it.action },
         )
     }
 
@@ -58,10 +55,10 @@ class CandidateBarControllerTest {
     fun noCandidates_showsSettingsAction() {
         refresh()
 
-        assertEquals(1, candidateContainer.childCount)
+        assertEquals(5, candidateContainer.childCount)
         val action = actionViewAt(0)
-        assertEquals(context.getString(R.string.key_settings), action.text.toString())
-        assertEquals(CandidateBarAction.OPEN_SETTINGS, action.tag)
+        assertEquals(context.getString(R.string.key_select_all), action.text.toString())
+        assertEquals(CandidateBarAction.SELECT_ALL, action.tag)
         assertEquals(ViewGroup.LayoutParams.WRAP_CONTENT, action.layoutParams.width)
         assertEquals(ViewGroup.LayoutParams.MATCH_PARENT, action.layoutParams.height)
         assertEquals(Gravity.CENTER, action.gravity)
@@ -86,9 +83,9 @@ class CandidateBarControllerTest {
 
         refresh()
 
-        assertEquals(1, candidateContainer.childCount)
-        assertEquals(context.getString(R.string.key_settings), actionViewAt(0).text.toString())
-        assertEquals(CandidateBarAction.OPEN_SETTINGS, actionViewAt(0).tag)
+        assertEquals(5, candidateContainer.childCount)
+        assertEquals(context.getString(R.string.key_select_all), actionViewAt(0).text.toString())
+        assertEquals(CandidateBarAction.SELECT_ALL, actionViewAt(0).tag)
     }
 
     @Test
@@ -143,7 +140,7 @@ class CandidateBarControllerTest {
     fun settingsAction_invokesCallback() {
         refresh()
 
-        actionViewAt(0).performClick()
+        actionViewAt(4).performClick()
 
         assertEquals(CandidateBarAction.OPEN_SETTINGS, performedAction)
     }
@@ -300,6 +297,17 @@ class CandidateBarControllerTest {
 class CandidateBarServiceTest {
 
     @Test
+    fun idleKeyboard_showsEditingActionsDirectly() {
+        val service = Robolectric.buildService(TwoTouchKeyboardService::class.java).create().get()
+        shadowOf(Looper.getMainLooper()).idle()
+        val keyboard = service.onCreateInputView()
+        val container = keyboard.findViewById<LinearLayout>(R.id.candidate_container)
+        assertEquals(CandidateBarActions.idle.map { it.action },
+            (0 until container.childCount).map { container.getChildAt(it).tag })
+        service.onDestroy()
+    }
+
+    @Test
     fun settingsIntent_setsNewTaskClearTopAndSingleTop() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val intent = settingsActivityIntent(context)
@@ -315,8 +323,8 @@ class CandidateBarServiceTest {
         val keyboard = service.onCreateInputView()
         val container = keyboard.findViewById<LinearLayout>(R.id.candidate_container)
 
-        assertEquals(1, container.childCount)
-        val settingsKey = container.getChildAt(0) as TextView
+        assertEquals(5, container.childCount)
+        val settingsKey = container.findViewWithTag<TextView>(CandidateBarAction.OPEN_SETTINGS)
         assertEquals(context.getString(R.string.key_settings), settingsKey.text.toString())
         assertEquals(CandidateBarAction.OPEN_SETTINGS, settingsKey.tag)
 
@@ -355,8 +363,8 @@ class CandidateBarServiceTest {
         session.clear()
         refreshConversionUi(service)
 
-        assertEquals(1, container.childCount)
-        val settingsKey = container.getChildAt(0) as TextView
+        assertEquals(5, container.childCount)
+        val settingsKey = container.findViewWithTag<TextView>(CandidateBarAction.OPEN_SETTINGS)
         assertEquals(context.getString(R.string.key_settings), settingsKey.text.toString())
         assertEquals(CandidateBarAction.OPEN_SETTINGS, settingsKey.tag)
     }

@@ -54,10 +54,11 @@ class KeyboardCandidateBarLayoutTest {
     }
 
     @Test
-    fun candidateScroll_isTransparentByDefault() {
+    fun candidateScroll_usesOpaqueKeyboardBackground() {
         val background = candidateScroll.background
-        assertTrue("candidate row should have a transparent background", background != null)
-        assertEquals(0, background!!.alpha)
+        assertTrue(background is ColorDrawable)
+        assertEquals(ContextCompat.getColor(context, R.color.keyboard_background), (background as ColorDrawable).color)
+        assertEquals(255, background.alpha)
     }
 
     @Test

@@ -4,9 +4,9 @@
     android:layout_width="wrap_content"
     android:layout_height="match_parent"
     android:layout_marginEnd="4dp"
-    android:background="@drawable/candidate_chip_background"
+    android:background="@drawable/candidate_action_background"
     android:gravity="center"
-    android:paddingHorizontal="16dp"
+    android:paddingHorizontal="10dp"
     android:paddingVertical="8dp"
     android:textColor="@color/candidate_text"
     android:textSize="16sp" />
