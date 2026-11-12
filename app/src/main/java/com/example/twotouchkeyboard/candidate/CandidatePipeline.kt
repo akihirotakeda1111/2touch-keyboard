@@ -14,24 +14,27 @@ class CandidatePipeline(
     private val getJapanesePriority: (String, String) -> Int = { reading, value ->
         JapaneseCandidatePrior.current().priorityOf(reading, value)
     },
+    private val getDictionaryCandidates: (String) -> List<ConversionCandidate> = { emptyList() },
 ) {
     fun prepare(
         mode: InputMode,
         input: String,
         candidates: List<ConversionCandidate>,
         kind: CandidateRequestKind = CandidateRequestKind.CONVERSION,
+        conversionEnabled: Boolean = true,
     ): List<ConversionCandidate> {
+        if (!conversionEnabled) return emptyList()
         // Zero-query suggestions retain engine order and never fall back to composing text.
         if (kind == CandidateRequestKind.NEXT_INPUT) return candidates
         if (input.isEmpty()) return emptyList()
 
         return when (mode) {
             InputMode.HIRAGANA -> {
-                HiraganaPredictionSupport.rankEligibleCandidates(
+                (getDictionaryCandidates(input) + HiraganaPredictionSupport.rankEligibleCandidates(
                     candidates,
                     input,
                     getJapanesePriority,
-                ).ifEmpty {
+                )).distinctBy { it.value }.ifEmpty {
                     listOf(ConversionCandidate(input, input))
                 }
             }

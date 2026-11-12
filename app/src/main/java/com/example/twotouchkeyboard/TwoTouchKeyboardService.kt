@@ -65,6 +65,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
     private lateinit var conversionEngine: ConversionEngine
     private lateinit var candidateLearningCoordinator: CandidateLearningCoordinator
     private lateinit var candidatePipeline: CandidatePipeline
+    private var dictionarySnapshot = com.example.twotouchkeyboard.dictionary.DictionarySnapshot()
 
     private val conversionScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var conversionJob: Job? = null
@@ -110,7 +111,20 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
             getJapanesePriority = { reading, value ->
                 if (conversionEngine.isMozc) JapaneseCandidatePrior.current().priorityOf(reading, value) else 0
             },
+            getDictionaryCandidates = { reading ->
+                dictionarySnapshot.candidatesFor(reading)
+            },
         )
+        lifecycleScope.launch {
+            com.example.twotouchkeyboard.dictionary.UserDictionaryRepository(applicationContext)
+                .snapshot.collect { snapshot ->
+                    dictionarySnapshot = snapshot
+                    if (::coordinator.isInitialized && ::candidateContainer.isInitialized) {
+                        val composing = coordinator.getComposingText()
+                        if (composing.isNotEmpty()) requestConversion(composing)
+                    }
+                }
+        }
         settingsCollectJob = lifecycleScope.launch {
             combine(
                 settingsRepository.hiraganaInputMode,
@@ -702,6 +716,7 @@ class TwoTouchKeyboardService : InputMethodService(), LifecycleOwner {
                 mode = requestMode,
                 input = target,
                 candidates = rawCandidates,
+                conversionEnabled = coordinator.isConversionEnabled(),
             ).map { it.value }
             conversionSession.setCandidates(rankedCandidates)
             if (pendingConversionActivation && rankedCandidates.isNotEmpty()) {
