@@ -41,6 +41,8 @@ abstract class BaseInputProcessor(
                 host.onProcessorStateChanged()
             }
             host.getConfirmedBuffer().isNotEmpty() -> host.deleteLastConfirmedCharacter()
+            // deleteSurroundingText excludes the selection, so replace it explicitly.
+            !ic.getSelectedText(0).isNullOrEmpty() -> ic.commitText("", 1)
             else -> ic.deleteSurroundingText(1, 0)
         }
     }
